@@ -18,6 +18,8 @@
 # limitations under the License.
 ################################################################################
 
+source "${END_TO_END_DIR}"/test-scripts/common.sh
+
 # flag indicating if we have already cleared up things after a test
 CLEARED=0
 
@@ -59,10 +61,8 @@ function verify_logs() {
     local VERIFY_CHECKPOINTS=$2
 
     # verify that we have no alerts
-    if ! [ `cat ${OUTPUT} | wc -l` -eq 0 ]; then
-        echo "FAILURE: Alerts found at the general purpose job."
-        EXIT_CODE=1
-    fi
+    check_logs_for_non_empty_out_files
+    EXIT_CODE=$(($EXIT_CODE+$?))
 
     # checks that all apart from the first JM recover the failed jobgraph.
     if ! verify_num_occurences_in_logs 'standalonesession' 'Recovered SubmittedJobGraph' ${JM_FAILURES}; then
