@@ -251,6 +251,8 @@ public class DataStreamAllroundTestJobFactory {
 
 		env.enableCheckpointing(checkpointInterval, checkpointingMode);
 
+		env.getCheckpointConfig().setMinPauseBetweenCheckpoints(50);
+
 		boolean enableExternalizedCheckpoints = pt.getBoolean(
 			ENVIRONMENT_EXTERNALIZE_CHECKPOINT.key(),
 			ENVIRONMENT_EXTERNALIZE_CHECKPOINT.defaultValue());
