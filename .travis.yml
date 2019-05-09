@@ -119,8 +119,5 @@ jobs:
       script: ./tools/travis/nightly.sh split_checkpoints.sh
       name: checkpoints
     - env: PROFILE="-Dinclude-kinesis -Djdk9 -Dhadoop.version=2.8.3"
-      script: ./tools/travis/nightly.sh split_container.sh
-      name: container
-    - env: PROFILE="-Dinclude-kinesis -Djdk9 -Dhadoop.version=2.8.3"
       script: ./tools/travis/nightly.sh split_heavy.sh
       name: heavy
