@@ -313,6 +313,14 @@ public class TaskManagerOptions {
 			.withDescription("Maximum memory size for network buffers.");
 
 	/**
+	 * Configuration key of memory size for network buffers.
+	 * This is only used to store memory size derived from {@link #TASK_MANAGER_MEMORY_NETWORK_MIN},
+	 * {@link #TASK_MANAGER_MEMORY_NETWORK_MAX} and {@link #TASK_MANAGER_MEMORY_NETWORK_FRACTION} in the
+	 * {@link Configuration}. It should not be exposed to the users.
+	 */
+	public static final String TASK_MANAGER_MEMORY_NETWORK_SIZE_KEY = "taskmanager.memory.network";
+
+	/**
 	 * JVM metaspace memory size for the TaskManagers.
 	 */
 	public static final ConfigOption<String> TASK_MANAGER_MEMORY_JVM_METASPACE =

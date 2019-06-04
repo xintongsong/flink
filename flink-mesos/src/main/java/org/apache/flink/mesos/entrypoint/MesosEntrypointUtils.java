@@ -110,9 +110,9 @@ public class MesosEntrypointUtils {
 			taskManagerParameters.containeredParameters().numSlots());
 		log.info("TaskManagers will be started with container size {} MB, JVM heap size {} MB, " +
 				"JVM direct memory limit {} MB, {} cpus, {} gpus, disk space {} MB",
-			taskManagerParameters.containeredParameters().taskManagerTotalMemoryMB(),
-			taskManagerParameters.containeredParameters().taskManagerHeapSizeMB(),
-			taskManagerParameters.containeredParameters().taskManagerDirectMemoryLimitMB(),
+			taskManagerParameters.containeredParameters().getTaskManagerResource().getTotalProcessMemoryMb(),
+			taskManagerParameters.containeredParameters().getTaskManagerResource().getJvmHeapMemoryMb(),
+			taskManagerParameters.containeredParameters().getTaskManagerResource().getJvmDirectMemoryMb(),
 			taskManagerParameters.cpus(),
 			taskManagerParameters.gpus(),
 			taskManagerParameters.disk());

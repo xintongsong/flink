@@ -24,6 +24,7 @@ import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.configuration.description.Description;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
+import org.apache.flink.runtime.clusterframework.types.TaskManagerResource;
 import org.apache.flink.util.Preconditions;
 
 import com.netflix.fenzo.ConstraintEvaluator;
@@ -334,9 +335,10 @@ public class MesosTaskManagerParameters {
 
 		List<ConstraintEvaluator> constraints = parseConstraints(flinkConfig.getString(MESOS_CONSTRAINTS_HARD_HOSTATTR));
 		// parse the common parameters
+		flinkConfig.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_PROCESS, flinkConfig.getInteger(MESOS_RM_TASKS_MEMORY_MB) + "m");
 		ContaineredTaskManagerParameters containeredParameters = ContaineredTaskManagerParameters.create(
 			flinkConfig,
-			flinkConfig.getInteger(MESOS_RM_TASKS_MEMORY_MB),
+			TaskManagerResource.fromConfiguration(flinkConfig),
 			flinkConfig.getInteger(MESOS_RM_TASKS_SLOTS));
 
 		double cpus = flinkConfig.getDouble(MESOS_RM_TASKS_CPUS);

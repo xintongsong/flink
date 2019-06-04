@@ -28,6 +28,7 @@ import org.apache.flink.mesos.util.MesosConfiguration;
 import org.apache.flink.mesos.util.MesosResourceAllocation;
 import org.apache.flink.runtime.clusterframework.ContainerSpecification;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
+import org.apache.flink.runtime.clusterframework.types.TaskManagerResource;
 import org.apache.flink.util.Preconditions;
 
 import com.netflix.fenzo.ConstraintEvaluator;
@@ -135,7 +136,7 @@ public class LaunchableMesosWorker implements LaunchableTask {
 
 		@Override
 		public double getMemory() {
-			return params.containeredParameters().taskManagerTotalMemoryMB();
+			return params.containeredParameters().getTaskManagerResource().getTotalProcessMemoryMb();
 		}
 
 		@Override
@@ -273,15 +274,27 @@ public class LaunchableMesosWorker implements LaunchableTask {
 		env.addVariables(variable(MesosConfigKeys.ENV_FLINK_CONTAINER_ID, taskInfo.getTaskId().getValue()));
 
 		// finalize the memory parameters
-		jvmArgs.append(" -Xms").append(tmParams.taskManagerHeapSizeMB()).append("m");
-		jvmArgs.append(" -Xmx").append(tmParams.taskManagerHeapSizeMB()).append("m");
-		if (tmParams.taskManagerDirectMemoryLimitMB() >= 0) {
-			jvmArgs.append(" -XX:MaxDirectMemorySize=").append(tmParams.taskManagerDirectMemoryLimitMB()).append("m");
+		TaskManagerResource tmResource = tmParams.getTaskManagerResource();
+		jvmArgs.append(" -Xms").append(tmResource.getJvmHeapMemoryMb()).append("m");
+		jvmArgs.append(" -Xmx").append(tmResource.getJvmHeapMemoryMb()).append("m");
+		if (tmResource.getJvmDirectMemoryMb() >= 0) {
+			jvmArgs.append(" -XX:MaxDirectMemorySize=").append(tmResource.getJvmDirectMemoryMb()).append("m");
+		}
+		if (tmResource.getJvmMetaspaceMb() >= 0) {
+			jvmArgs.append(" -XX:MaxMetaspaceSize=").append(tmResource.getJvmMetaspaceMb()).append("m");
 		}
 
 		// pass dynamic system properties
 		jvmArgs.append(' ').append(
 			ContainerSpecification.formatSystemProperties(containerSpec.getSystemProperties()));
+
+		jvmArgs.append(" -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP.key() + tmResource.getHeapMemoryMb());
+		jvmArgs.append(" -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP_FRAMEWORK.key() + tmResource.getFrameworkHeapMemoryMb());
+		jvmArgs.append(" -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED.key() + tmResource.getManagedMemoryMb());
+		jvmArgs.append(" -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED_OFFHEAP.key() + tmResource.isManagedMemoryOffheap());
+		jvmArgs.append(" -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_SIZE_KEY + tmResource.getNetworkMemoryMb());
+		jvmArgs.append( " -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_DIRECT.key() + tmResource.getJvmDirectMemoryMb());
+		jvmArgs.append(" -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_NATIVE.key() + tmResource.getReservedNativeMemoryMb());
 
 		// finalize JVM args
 		env.addVariables(variable(MesosConfigKeys.ENV_JVM_ARGS, jvmArgs.toString()));

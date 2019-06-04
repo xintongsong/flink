@@ -26,6 +26,7 @@ import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
+import org.apache.flink.runtime.clusterframework.types.TaskManagerResource;
 import org.apache.flink.util.NetUtils;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelException;
@@ -424,12 +425,16 @@ public class BootstrapTools {
 		startCommandValues.put("java", "$JAVA_HOME/bin/java");
 
 		ArrayList<String> params = new ArrayList<>();
-		params.add(String.format("-Xms%dm", tmParams.taskManagerHeapSizeMB()));
-		params.add(String.format("-Xmx%dm", tmParams.taskManagerHeapSizeMB()));
+		TaskManagerResource tmResource = tmParams.getTaskManagerResource();
+		params.add(String.format("-Xms%dm", tmResource.getJvmHeapMemoryMb()));
+		params.add(String.format("-Xmx%dm", tmResource.getJvmHeapMemoryMb()));
 
-		if (tmParams.taskManagerDirectMemoryLimitMB() >= 0) {
-			params.add(String.format("-XX:MaxDirectMemorySize=%dm",
-				tmParams.taskManagerDirectMemoryLimitMB()));
+		if (tmResource.getJvmDirectMemoryMb() >= 0) {
+			params.add(String.format("-XX:MaxDirectMemorySize=%dm", tmResource.getJvmDirectMemoryMb()));
+		}
+
+		if (tmResource.getJvmMetaspaceMb() >= 0) {
+			params.add(String.format("-XX:MaxMetaspaceSize=%dm", tmResource.getJvmMetaspaceMb()));
 		}
 
 		startCommandValues.put("jvmmem", StringUtils.join(params, ' '));
@@ -438,11 +443,21 @@ public class BootstrapTools {
 		if (flinkConfig.getString(CoreOptions.FLINK_TM_JVM_OPTIONS).length() > 0) {
 			javaOpts += " " + flinkConfig.getString(CoreOptions.FLINK_TM_JVM_OPTIONS);
 		}
+
+		javaOpts += " -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP.key() + tmResource.getHeapMemoryMb();
+		javaOpts += " -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP_FRAMEWORK.key() + tmResource.getFrameworkHeapMemoryMb();
+		javaOpts += " -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED.key() + tmResource.getManagedMemoryMb();
+		javaOpts += " -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED_OFFHEAP.key() + tmResource.isManagedMemoryOffheap();
+		javaOpts += " -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_SIZE_KEY + tmResource.getNetworkMemoryMb();
+		javaOpts += " -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_DIRECT.key() + tmResource.getJvmDirectMemoryMb();
+		javaOpts += " -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_NATIVE.key() + tmResource.getReservedNativeMemoryMb();
+
 		//applicable only for YarnMiniCluster secure test run
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {
 			javaOpts += " -Djava.security.krb5.conf=krb5.conf";
 		}
+
 		startCommandValues.put("jvmopts", javaOpts);
 
 		String logging = "";
