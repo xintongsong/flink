@@ -79,41 +79,14 @@ public class NetworkEnvironmentOptions {
 	 * Number of buffers used in the network stack. This defines the number of possible tasks and
 	 * shuffles.
 	 *
-	 * @deprecated use {@link #NETWORK_BUFFERS_MEMORY_FRACTION}, {@link #NETWORK_BUFFERS_MEMORY_MIN},
-	 * and {@link #NETWORK_BUFFERS_MEMORY_MAX} instead
+	 * @deprecated use {@link TaskManagerOptions#TASK_MANAGER_MEMORY_NETWORK_FRACTION},
+	 * {@link TaskManagerOptions#TASK_MANAGER_MEMORY_NETWORK_MIN},
+	 * and {@link TaskManagerOptions#TASK_MANAGER_MEMORY_NETWORK_MAX} instead
 	 */
 	@Deprecated
 	public static final ConfigOption<Integer> NETWORK_NUM_BUFFERS =
 		key("taskmanager.network.numberOfBuffers")
 			.defaultValue(2048);
-
-	/**
-	 * Fraction of JVM memory to use for network buffers.
-	 */
-	public static final ConfigOption<Float> NETWORK_BUFFERS_MEMORY_FRACTION =
-		key("taskmanager.network.memory.fraction")
-			.defaultValue(0.1f)
-			.withDescription("Fraction of JVM memory to use for network buffers. This determines how many streaming" +
-				" data exchange channels a TaskManager can have at the same time and how well buffered the channels" +
-				" are. If a job is rejected or you get a warning that the system has not enough buffers available," +
-				" increase this value or the min/max values below. Also note, that \"taskmanager.network.memory.min\"" +
-				"` and \"taskmanager.network.memory.max\" may override this fraction.");
-
-	/**
-	 * Minimum memory size for network buffers.
-	 */
-	public static final ConfigOption<String> NETWORK_BUFFERS_MEMORY_MIN =
-		key("taskmanager.network.memory.min")
-			.defaultValue("64mb")
-			.withDescription("Minimum memory size for network buffers.");
-
-	/**
-	 * Maximum memory size for network buffers.
-	 */
-	public static final ConfigOption<String> NETWORK_BUFFERS_MEMORY_MAX =
-		key("taskmanager.network.memory.max")
-			.defaultValue("1gb")
-			.withDescription("Maximum memory size for network buffers.");
 
 	/**
 	 * Number of network buffers to use for each outgoing/incoming channel (subpartition/input channel).

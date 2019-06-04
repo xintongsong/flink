@@ -25,7 +25,6 @@ import org.apache.flink.annotation.docs.Documentation;
 import org.apache.flink.configuration.description.Description;
 
 import static org.apache.flink.configuration.ConfigOptions.key;
-import static org.apache.flink.configuration.description.TextElement.code;
 import static org.apache.flink.configuration.description.TextElement.text;
 
 /**
@@ -35,35 +34,9 @@ import static org.apache.flink.configuration.description.TextElement.text;
 @ConfigGroups(groups = @ConfigGroup(name = "TaskManagerMemory", keyPrefix = "taskmanager.memory"))
 public class TaskManagerOptions {
 
-	private static final String MANAGED_MEMORY_PRE_ALLOCATE_KEY = "taskmanager.memory.preallocate";
-
 	// ------------------------------------------------------------------------
 	//  General TaskManager Options
 	// ------------------------------------------------------------------------
-
-	/**
-	 * JVM heap size for the TaskManagers with memory size.
-	 */
-	@Documentation.CommonOption(position = Documentation.CommonOption.POSITION_MEMORY)
-	public static final ConfigOption<String> TASK_MANAGER_HEAP_MEMORY =
-			key("taskmanager.heap.size")
-			.defaultValue("1024m")
-			.withDescription("JVM heap size for the TaskManagers, which are the parallel workers of" +
-					" the system. On YARN setups, this value is automatically configured to the size of the TaskManager's" +
-					" YARN container, minus a certain tolerance value.");
-
-	/**
-	 * JVM heap size (in megabytes) for the TaskManagers.
-	 *
-	 * @deprecated use {@link #TASK_MANAGER_HEAP_MEMORY}
-	 */
-	@Deprecated
-	public static final ConfigOption<Integer> TASK_MANAGER_HEAP_MEMORY_MB =
-			key("taskmanager.heap.mb")
-			.defaultValue(1024)
-			.withDescription("JVM heap size (in megabytes) for the TaskManagers, which are the parallel workers of" +
-				" the system. On YARN setups, this value is automatically configured to the size of the TaskManager's" +
-				" YARN container, minus a certain tolerance value.");
 
 	/**
 	 * Whether to kill the TaskManager when the task thread throws an OutOfMemoryError.
@@ -96,6 +69,21 @@ public class TaskManagerOptions {
 				" This option can be used to define explicitly a binding address. Because" +
 				" different TaskManagers need different values for this option, usually it is specified in an" +
 				" additional non-shared TaskManager-specific config file.");
+
+	/**
+	 * The config parameter for automatically defining the TaskManager's binding address,
+	 * if {@link #HOST} configuration option is not set.
+	 */
+	public static final ConfigOption<String> HOST_BIND_POLICY =
+		key("taskmanager.network.bind-policy")
+			.defaultValue("ip")
+			.withDescription(Description.builder()
+				.text("The automatic address binding policy used by the TaskManager if \"" + HOST.key() + "\" is not set." +
+					" The value should be one of the following:\n")
+				.list(
+					text("\"name\" - uses hostname as binding address"),
+					text("\"ip\" - uses host's ip address as binding address"))
+				.build());
 
 	/**
 	 * The default network port range the task manager expects incoming IPC connections. The {@code "0"} means that
@@ -176,8 +164,203 @@ public class TaskManagerOptions {
 			.withDescription("The interval (in ms) for the log thread to log the current memory usage.");
 
 	// ------------------------------------------------------------------------
-	//  Managed Memory Options
+	//  Memory Options
 	// ------------------------------------------------------------------------
+
+	/**
+	 * Total Flink memory size for the TaskManagers.
+	 */
+	@Documentation.CommonOption(position = Documentation.CommonOption.POSITION_MEMORY)
+	public static final ConfigOption<String> TASK_MANAGER_MEMORY =
+		key("taskmanager.memory.size")
+			.noDefaultValue()
+			.withDescription("Total Flink memory size for the TaskManagers, which are the parallel workers of the system."
+				+ " This includes JVM heap memory, managed memory and network memory. This excludes JVM metaspace,"
+				+ " other JVM overhead, and user-allocated direct and native memory. On YARN setups, this value is"
+				+ " automatically configured to the size of the TaskManager's YARN container, minus the excluded"
+				+ " portions.");
+
+	/**
+	 * JVM heap size for the TaskManagers with memory size.
+	 *
+	 * @deprecated use {@link #TASK_MANAGER_MEMORY} for total Flink memory, and {@link #TASK_MANAGER_MEMORY_HEAP} for
+	 * heap memory
+	 */
+	@Deprecated
+	public static final ConfigOption<String> TASK_MANAGER_HEAP_MEMORY =
+		key("taskmanager.heap.size")
+			.defaultValue("1024m")
+			.withDescription("JVM heap size for the TaskManagers, which are the parallel workers of" +
+				" the system. On YARN setups, this value is automatically configured to the size of the TaskManager's" +
+				" YARN container, minus a certain tolerance value.");
+
+	/**
+	 * JVM heap size (in megabytes) for the TaskManagers.
+	 *
+	 * @deprecated use {@link #TASK_MANAGER_MEMORY} for total Flink memory, and {@link #TASK_MANAGER_MEMORY_HEAP} for
+	 * heap memory
+	 */
+	@Deprecated
+	public static final ConfigOption<Integer> TASK_MANAGER_HEAP_MEMORY_MB =
+		key("taskmanager.heap.mb")
+			.defaultValue(1024)
+			.withDescription("JVM heap size (in megabytes) for the TaskManagers, which are the parallel workers of" +
+				" the system. On YARN setups, this value is automatically configured to the size of the TaskManager's" +
+				" YARN container, minus a certain tolerance value.");
+
+	/**
+	 * Total process memory size for the TaskManagers.
+	 */
+	public static final ConfigOption<String> TASK_MANAGER_MEMORY_PROCESS =
+		key("taskmanager.memory.process")
+			.noDefaultValue()
+			.withDescription("Total process memory size for the TaskManagers, which are the parallel workers of the system."
+				+ " This includes JVM heap memory, managed memory, network memory, JVM metaspace, other JVM overhead,"
+				+ " and user-allocated direct and native memory. On YARN setups, this value is automatically configured"
+				+ " to the size of the TaskManager's YARN container.");
+
+	/**
+	 * JVM heap memory size for Flink and user code for the TaskManagers.
+	 */
+	public static final ConfigOption<String> TASK_MANAGER_MEMORY_HEAP =
+		key("taskmanager.memory.heap")
+			.noDefaultValue()
+			.withDescription("JVM heap memory size for Flink and user code for the TaskManagers, which does not include"
+				+ " on heap managed memory. If not specified, it will be derived as the total Flink memory (specified"
+				+ " by taskmanager.memory.size) minus managed memory (specified by"
+				+ " taskmanager.memory.managed.[size|fraction]) and network memory (specified by"
+				+ " taskmanager.memory.network.[min|max|fraction]).");
+
+	/**
+	 * JVM heap memory size for Flink for the TaskManagers.
+	 */
+	public static final ConfigOption<String> TASK_MANAGER_MEMORY_HEAP_FRAMEWORK =
+		key("taskmanager.memory.heap.framework")
+			.defaultValue("128m")
+			.withDescription("JVM heap memory size for Flink for the TaskManagers, which is the portion of heap memory"
+				+ "used by Flink framework only.");
+
+	/**
+	 * Managed memory size for the TaskManagers.
+	 */
+	public static final ConfigOption<String> TASK_MANAGER_MEMORY_MANAGED =
+		key("taskmanager.memory.managed.size")
+			.noDefaultValue()
+			.withDeprecatedKeys("taskmanager.memory.size")
+			.withDescription("Managed memory size for the TaskManagers, which is the amount of memory reserved for"
+				+ " sorting, hash tables, caching of intermediate results and state backends. Memory consumers can"
+				+ " either allocate memory from the memory manager in the form of MemorySegments, or reserve bytes from"
+				+ " the memory manager and keep their memory usage within that boundary. If unspecified, it will be"
+				+ " derived as a relative fraction (specified by taskmanager.memory.managed.fraction) of the total Flink"
+				+ " memory (specified by taskmanager.memory.size).");
+
+	/**
+	 * Fraction of total Flink memory to use as managed memory, if {@link #TASK_MANAGER_MEMORY_MANAGED} is not set.
+	 */
+	public static final ConfigOption<Float> TASK_MANAGER_MEMORY_MANAGED_FRACTION =
+		key("taskmanager.memory.managed.fraction")
+			.defaultValue(0.5f)
+			.withDeprecatedKeys("taskmanager.memory.fraction")
+			.withDescription("The relative amount of total Flink memory that is used as managed memory, which is the"
+				+ " amount of memory reserved for sorting, hash tables, caching of intermediate results and state"
+				+ " backends. Memory consumers can either allocate memory from the memory manager in the form of"
+				+ " MemorySegments, or reserve bytes from the memory manager and keep their memory usage within that"
+				+ " boundary. This parameter is only evaluated if \"taskmanager.memory.managed.size\" is not set.");
+
+	/**
+	 * Memory allocation method (JVM heap or off-heap), used for managed memory of the TaskManagers.
+	 */
+	public static final ConfigOption<String> TASK_MANAGER_MEMORY_MANAGED_OFFHEAP =
+		key("taskmanager.memory.managed.off-heap")
+			.defaultValue("auto")
+			.withDeprecatedKeys("taskmanager.memory.off-heap")
+			.withDescription("Memory allocation method (JVM heap or off-heap), used for managed memory of the"
+				+ " TaskManagers. For setups with larger quantities of memory, this can improve the efficiency of the"
+				+ " operations performed on the memory. Valid values of this config option are \"true\", \"false\", and"
+				+ " \"auto\". When set to auto, Flink will decide the allocation method depending on the configured"
+				+ " state backend (heap for MemoryStateBackend and FsStateBackend, off-heap for RocksDBStateBackend and"
+				+ " no state backend). ");
+
+	/**
+	 * Fraction of total Flink memory to use for network buffers.
+	 */
+	public static final ConfigOption<Float> TASK_MANAGER_MEMORY_NETWORK_FRACTION =
+		key("taskmanager.memory.network.fraction")
+			.defaultValue(0.1f)
+			.withDeprecatedKeys("taskmanager.network.memory.fraction")
+			.withDescription("Fraction of total Flink memory to use for network buffers. This determines how many"
+				+ " streaming data exchange channels a TaskManager can have at the same time and how well buffered the"
+				+ " channels are. If a job is rejected or you get a warning that the system has not enough buffers"
+				+ " available, increase this value or the min/max values below. Also note, that "
+				+ "\"taskmanager.memory.network.min\" and \"taskmanager.memory.network.max\" may override this fraction.");
+
+	/**
+	 * Minimum memory size for network buffers.
+	 */
+	public static final ConfigOption<String> TASK_MANAGER_MEMORY_NETWORK_MIN =
+		key("taskmanager.memory.network.min")
+			.defaultValue("64mb")
+			.withDeprecatedKeys("taskmanager.network.memory.min")
+			.withDescription("Minimum memory size for network buffers.");
+
+	/**
+	 * Maximum memory size for network buffers.
+	 */
+	public static final ConfigOption<String> TASK_MANAGER_MEMORY_NETWORK_MAX =
+		key("taskmanager.memory.network.max")
+			.defaultValue("1gb")
+			.withDeprecatedKeys("taskmanager.network.memory.max")
+			.withDescription("Maximum memory size for network buffers.");
+
+	/**
+	 * JVM metaspace memory size for the TaskManagers.
+	 */
+	public static final ConfigOption<String> TASK_MANAGER_MEMORY_JVM_METASPACE =
+		key("taskmanager.memory.jvm-metaspace")
+			.defaultValue("192m")
+			.withDescription("JVM metaspace memory size for the TaskManagers.");
+
+	/**
+	 * Fraction of total process memory reserved for JVM overheads.
+	 */
+	public static final ConfigOption<Float> TASK_MANAGER_MEMORY_JVM_OVERHEAD_FRACTION =
+		key("taskmanager.memory.jvm-overhead.fraction")
+			.defaultValue(0.1f)
+			.withDescription("Fraction of total process memory reserved for JVM overheads, which are thread stack space,"
+				+ " I/O direct memory, compile cache, etc. Note, that \"taskmanager.memory.jvm-overhead.min\" and"
+				+ " \"taskmanager.memory.jvm-overhead.max\" may override this fraction.");
+
+	/**
+	 * Minimum memory size reserved for JVM overheads.
+	 */
+	public static final ConfigOption<String> TASK_MANAGER_MEMORY_JVM_OVERHEAD_MIN =
+		key("taskmanager.memory.jvm-overhead.min")
+			.defaultValue("128m")
+			.withDescription("Minimum memory size reserved for JVM overheads.");
+
+	/**
+	 * Maximum memory size reserved for JVM overheads.
+	 */
+	public static final ConfigOption<String> TASK_MANAGER_MEMORY_JVM_OVERHEAD_MAX =
+		key("taskmanager.memory.jvm-overhead.max")
+			.defaultValue("1g")
+			.withDescription("Maximum memory size reserved for JVM overheads.");
+
+	/**
+	 * Memory size reserved for user-allocated direct memory (for libraries).
+	 */
+	public static final ConfigOption<String> TASK_MANAGER_MEMORY_RESERVED_DIRECT =
+		key("taskmanager.memory.reserved.direct")
+			.defaultValue("0b")
+			.withDescription("Memory size reserved for user-allocated direct memory (for libraries).");
+
+	/**
+	 * Memory size reserved for user-allocated native memory (for libraries).
+	 */
+	public static final ConfigOption<String> TASK_MANAGER_MEMORY_RESERVED_NATIVE =
+		key("taskmanager.memory.reserved.native")
+			.defaultValue("0b")
+			.withDescription("Memory size reserved for user-allocated native memory (for libraries).");
 
 	/**
 	 * Size of memory buffers used by the network stack and the memory manager.
@@ -186,79 +369,6 @@ public class TaskManagerOptions {
 			key("taskmanager.memory.segment-size")
 			.defaultValue("32kb")
 			.withDescription("Size of memory buffers used by the network stack and the memory manager.");
-
-	/**
-	 * Amount of memory to be allocated by the task manager's memory manager. If not
-	 * set, a relative fraction will be allocated, as defined by {@link #MANAGED_MEMORY_FRACTION}.
-	 */
-	public static final ConfigOption<String> MANAGED_MEMORY_SIZE =
-			key("taskmanager.memory.size")
-			.defaultValue("0")
-			.withDescription("The amount of memory (in megabytes) that the task manager reserves on-heap or off-heap" +
-				" (depending on taskmanager.memory.off-heap) for sorting, hash tables, and caching of intermediate" +
-				" results. If unspecified, the memory manager will take a fixed ratio with respect to the size of" +
-				" the task manager JVM as specified by taskmanager.memory.fraction.");
-
-	/**
-	 * Fraction of free memory allocated by the memory manager if {@link #MANAGED_MEMORY_SIZE} is
-	 * not set.
-	 */
-	public static final ConfigOption<Float> MANAGED_MEMORY_FRACTION =
-			key("taskmanager.memory.fraction")
-			.defaultValue(0.7f)
-			.withDescription(new Description.DescriptionBuilder()
-				.text("The relative amount of memory (after subtracting the amount of memory used by network" +
-					" buffers) that the task manager reserves for sorting, hash tables, and caching of intermediate results." +
-					" For example, a value of %s means that a task manager reserves 80% of its memory" +
-					" (on-heap or off-heap depending on taskmanager.memory.off-heap)" +
-					" for internal data buffers, leaving 20% of free memory for the task manager's heap for objects" +
-					" created by user-defined functions. This parameter is only evaluated, if " + MANAGED_MEMORY_SIZE.key() +
-					" is not set.", code("0.8"))
-				.build());
-
-	/**
-	 * Memory allocation method (JVM heap or off-heap), used for managed memory of the TaskManager
-	 * as well as the network buffers.
-	 **/
-	public static final ConfigOption<Boolean> MEMORY_OFF_HEAP =
-			key("taskmanager.memory.off-heap")
-			.defaultValue(false)
-				.withDescription(Description.builder()
-					.text("Memory allocation method (JVM heap or off-heap), used for managed memory of the" +
-						" TaskManager. For setups with larger quantities of memory, this can" +
-						" improve the efficiency of the operations performed on the memory.")
-					.linebreak()
-					.text("When set to true, then it is advised that %s is also set to true.", code(MANAGED_MEMORY_PRE_ALLOCATE_KEY))
-					.build());
-
-	/**
-	 * Whether TaskManager managed memory should be pre-allocated when the TaskManager is starting.
-	 */
-	public static final ConfigOption<Boolean> MANAGED_MEMORY_PRE_ALLOCATE =
-			key(MANAGED_MEMORY_PRE_ALLOCATE_KEY)
-			.defaultValue(false)
-			.withDescription(Description.builder()
-				.text("Whether TaskManager managed memory should be pre-allocated when the TaskManager is starting." +
-					" When %s is set to true, then it is advised that this configuration is also" +
-					" set to true. If this configuration is set to false cleaning up of the allocated off-heap memory" +
-					" happens only when the configured JVM parameter MaxDirectMemorySize is reached by triggering a full" +
-					" GC. For streaming setups is is highly recommended to set this value to false as the core state" +
-					" backends currently do not use the managed memory.", code(MEMORY_OFF_HEAP.key())).build());
-
-	/**
-	 * The config parameter for automatically defining the TaskManager's binding address,
-	 * if {@link #HOST} configuration option is not set.
-	 */
-	public static final ConfigOption<String> HOST_BIND_POLICY =
-		key("taskmanager.network.bind-policy")
-			.defaultValue("ip")
-			.withDescription(Description.builder()
-				.text("The automatic address binding policy used by the TaskManager if \"" + HOST.key() + "\" is not set." +
-					" The value should be one of the following:\n")
-				.list(
-					text("\"name\" - uses hostname as binding address"),
-					text("\"ip\" - uses host's ip address as binding address"))
-				.build());
 
 	// ------------------------------------------------------------------------
 	//  Task Options
