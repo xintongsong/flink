@@ -68,7 +68,7 @@ public class FileChannelStreamsITCase extends TestLogger {
 	@Before
 	public void beforeTest() {
 		memManager = new MemoryManager(NUM_MEMORY_SEGMENTS * MEMORY_PAGE_SIZE, 1,
-				MEMORY_PAGE_SIZE, MemoryType.HEAP, true);
+				MEMORY_PAGE_SIZE, MemoryType.HEAP);
 		ioManager = new IOManagerAsync();
 	}
 

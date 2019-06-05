@@ -78,7 +78,7 @@ public class ManualExactlyOnceTest {
 		}
 
 		final Configuration flinkConfig = new Configuration();
-		flinkConfig.setString(TaskManagerOptions.MANAGED_MEMORY_SIZE, "16m");
+		flinkConfig.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED, "16m");
 		flinkConfig.setString(ConfigConstants.RESTART_STRATEGY_FIXED_DELAY_DELAY, "0 s");
 
 		MiniClusterResource flink = new MiniClusterResource(new MiniClusterResourceConfiguration.Builder()

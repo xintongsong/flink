@@ -21,10 +21,7 @@ package org.apache.flink.runtime.clusterframework;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.runtime.clusterframework.types.TaskManagerResource;
-import org.apache.flink.runtime.taskexecutor.TaskManagerServices;
-import org.apache.flink.util.Preconditions;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 

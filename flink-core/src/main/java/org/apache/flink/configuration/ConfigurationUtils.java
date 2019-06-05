@@ -19,7 +19,6 @@
 package org.apache.flink.configuration;
 
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nonnull;
 

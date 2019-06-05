@@ -120,10 +120,9 @@ public class TaskManagerRunnerStartupTest extends TestLogger {
 	@Test
 	public void testMemoryConfigWrong() throws Exception {
 		Configuration cfg = new Configuration();
-		cfg.setBoolean(TaskManagerOptions.MANAGED_MEMORY_PRE_ALLOCATE, true);
 
 		// something invalid
-		cfg.setString(TaskManagerOptions.MANAGED_MEMORY_SIZE, "-42m");
+		cfg.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED, "-42m");
 		try {
 
 			startTaskManager(
@@ -139,7 +138,7 @@ public class TaskManagerRunnerStartupTest extends TestLogger {
 		// something ridiculously high
 		final long memSize = (((long) Integer.MAX_VALUE - 1) *
 			MemorySize.parse(TaskManagerOptions.MEMORY_SEGMENT_SIZE.defaultValue()).getBytes()) >> 20;
-		cfg.setString(TaskManagerOptions.MANAGED_MEMORY_SIZE, memSize + "m");
+		cfg.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED, memSize + "m");
 		try {
 
 			startTaskManager(

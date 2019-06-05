@@ -64,7 +64,7 @@ public class JobSubmissionFailsITCase extends TestLogger {
 
 	private static Configuration getConfiguration() {
 		Configuration config = new Configuration();
-		config.setString(TaskManagerOptions.MANAGED_MEMORY_SIZE, "4m");
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED, "4m");
 		return config;
 	}
 

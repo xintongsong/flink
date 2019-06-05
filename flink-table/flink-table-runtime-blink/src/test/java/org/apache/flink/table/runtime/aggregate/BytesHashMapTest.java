@@ -187,7 +187,7 @@ public class BytesHashMapTest {
 
 		MemoryManager memoryManager = new MemoryManager(
 				minMemorySize, 32, MemoryManager.DEFAULT_PAGE_SIZE,
-				MemoryType.HEAP, true);
+				MemoryType.HEAP);
 		BytesHashMap table = new BytesHashMap(this, memoryManager,
 				minMemorySize, keyTypes, valueTypes, true);
 

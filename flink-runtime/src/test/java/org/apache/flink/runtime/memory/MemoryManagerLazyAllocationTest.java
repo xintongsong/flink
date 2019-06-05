@@ -53,7 +53,7 @@ public class MemoryManagerLazyAllocationTest {
 
 	@Before
 	public void setUp() {
-		this.memoryManager = new MemoryManager(MEMORY_SIZE, 1, PAGE_SIZE, MemoryType.HEAP, false);
+		this.memoryManager = new MemoryManager(MEMORY_SIZE, 1, PAGE_SIZE, MemoryType.HEAP);
 		this.random = new Random(RANDOM_SEED);
 	}
 

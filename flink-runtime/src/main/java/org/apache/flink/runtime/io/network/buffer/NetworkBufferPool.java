@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.buffer;
 
-import org.apache.flink.configuration.NetworkEnvironmentOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.core.memory.MemorySegmentProvider;
@@ -149,9 +149,9 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 						totalNumberOfMemorySegments - numTotalRequiredBuffers,
 						totalNumberOfMemorySegments,
 						memorySegmentSize,
-						NetworkEnvironmentOptions.NETWORK_BUFFERS_MEMORY_FRACTION.key(),
-						NetworkEnvironmentOptions.NETWORK_BUFFERS_MEMORY_MIN.key(),
-						NetworkEnvironmentOptions.NETWORK_BUFFERS_MEMORY_MAX.key()));
+						TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_FRACTION.key(),
+						TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_MIN.key(),
+						TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_MIN.key()));
 			}
 
 			this.numTotalRequiredBuffers += numberOfSegmentsToRequest;
@@ -284,9 +284,9 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 						totalNumberOfMemorySegments - numTotalRequiredBuffers,
 						totalNumberOfMemorySegments,
 						memorySegmentSize,
-						NetworkEnvironmentOptions.NETWORK_BUFFERS_MEMORY_FRACTION.key(),
-						NetworkEnvironmentOptions.NETWORK_BUFFERS_MEMORY_MIN.key(),
-						NetworkEnvironmentOptions.NETWORK_BUFFERS_MEMORY_MAX.key()));
+						TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_FRACTION.key(),
+						TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_MIN.key(),
+						TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_MIN.key()));
 			}
 
 			this.numTotalRequiredBuffers += numRequiredBuffers;

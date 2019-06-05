@@ -66,7 +66,7 @@ public class FixedLengthRecordSorterTest {
 
 	@Before
 	public void beforeTest() {
-		this.memoryManager = new MemoryManager(MEMORY_SIZE, 1, MEMORY_PAGE_SIZE, MemoryType.HEAP, true);
+		this.memoryManager = new MemoryManager(MEMORY_SIZE, 1, MEMORY_PAGE_SIZE, MemoryType.HEAP);
 		this.ioManager = new IOManagerAsync();
 		this.serializer = new IntPairSerializer();
 		this.comparator = new IntPairComparator();

@@ -221,7 +221,7 @@ public class BinaryHashTableTest {
 		MutableObjectIterator<BinaryRow> probeInput = new UniformBinaryRowGenerator(numKeys, probeValsPerKey, true);
 
 		// allocate the memory for the HashTable
-		MemoryManager memManager = new MemoryManager(200 * PAGE_SIZE, 1, PAGE_SIZE, MemoryType.HEAP, true);
+		MemoryManager memManager = new MemoryManager(200 * PAGE_SIZE, 1, PAGE_SIZE, MemoryType.HEAP);
 		final BinaryHashTable table = newBinaryHashTable(
 				this.buildSideSerializer,
 				this.probeSideSerializer,

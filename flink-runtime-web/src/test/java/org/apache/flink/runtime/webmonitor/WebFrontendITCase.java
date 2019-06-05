@@ -102,7 +102,7 @@ public class WebFrontendITCase extends TestLogger {
 		} catch (Exception e) {
 			throw new AssertionError("Could not setup test.", e);
 		}
-		config.setString(TaskManagerOptions.MANAGED_MEMORY_SIZE, "12m");
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED, "12m");
 		config.setBoolean(ConfigConstants.LOCAL_START_WEBSERVER, true);
 
 		return config;

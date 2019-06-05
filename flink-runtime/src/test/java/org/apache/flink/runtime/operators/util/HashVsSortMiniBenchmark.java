@@ -92,7 +92,7 @@ public class HashVsSortMiniBenchmark {
 		this.comparator2 = TestData.getIntStringTupleComparator();
 		this.pairComparator11 = new GenericPairComparator(this.comparator1, this.comparator2);
 		
-		this.memoryManager = new MemoryManager(MEMORY_SIZE, 1, PAGE_SIZE, MemoryType.HEAP, true);
+		this.memoryManager = new MemoryManager(MEMORY_SIZE, 1, PAGE_SIZE, MemoryType.HEAP);
 		this.ioManager = new IOManagerAsync();
 	}
 

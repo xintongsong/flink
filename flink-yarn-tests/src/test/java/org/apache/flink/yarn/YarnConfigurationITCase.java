@@ -25,9 +25,10 @@ import org.apache.flink.client.program.ClusterClient;
 import org.apache.flink.client.program.PackagedProgram;
 import org.apache.flink.client.program.PackagedProgramUtils;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.NetworkEnvironmentOptions;
 import org.apache.flink.configuration.ResourceManagerOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
+import org.apache.flink.runtime.clusterframework.types.TaskManagerResource;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.rest.RestClient;
 import org.apache.flink.runtime.rest.RestClientConfiguration;
@@ -87,8 +88,8 @@ public class YarnConfigurationITCase extends YarnTestBase {
 
 		// disable heap cutoff min
 		configuration.setInteger(ResourceManagerOptions.CONTAINERIZED_HEAP_CUTOFF_MIN, 0);
-		configuration.setString(NetworkEnvironmentOptions.NETWORK_BUFFERS_MEMORY_MIN, String.valueOf(1L << 20));
-		configuration.setString(NetworkEnvironmentOptions.NETWORK_BUFFERS_MEMORY_MAX, String.valueOf(4L << 20));
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_MIN, String.valueOf(1L << 20));
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_MAX, String.valueOf(4L << 20));
 
 		final YarnConfiguration yarnConfiguration = getYarnConfiguration();
 		final YarnClusterDescriptor clusterDescriptor = new YarnClusterDescriptor(
@@ -175,10 +176,10 @@ public class YarnConfigurationITCase extends YarnTestBase {
 
 				final ContaineredTaskManagerParameters containeredTaskManagerParameters = ContaineredTaskManagerParameters.create(
 					configuration,
-					taskManagerMemory,
+					TaskManagerResource.calculateFromConfiguration(configuration),
 					slotsPerTaskManager);
 
-				final long expectedHeadSize = containeredTaskManagerParameters.taskManagerHeapSizeMB() << 20L;
+				final long expectedHeadSize = (long) taskManagerMemory << 20L;
 
 				// We compare here physical memory assigned to a container with the heap memory that we should pass to
 				// jvm as Xmx parameter. Those value might differ significantly due to system page size or jvm

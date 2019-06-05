@@ -214,8 +214,6 @@ public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
 			config,
 			UnregisteredMetricGroups.createUnregisteredTaskManagerMetricGroup(),
 			ResourceID.generate(),
-			Executors.directExecutor(),
-			MEM_SIZE_PARAM,
-			MEM_SIZE_PARAM);
+			Executors.directExecutor());
 	}
 }

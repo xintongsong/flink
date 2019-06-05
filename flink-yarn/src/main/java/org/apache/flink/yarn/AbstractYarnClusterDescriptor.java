@@ -36,11 +36,10 @@ import org.apache.flink.configuration.SecurityOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
-import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
+import org.apache.flink.runtime.clusterframework.types.TaskManagerResource;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypoint;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
-import org.apache.flink.runtime.taskexecutor.TaskManagerServices;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.ShutdownHookUtil;
@@ -412,8 +411,9 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			// We do the validation by calling the calculation methods here
 			// Internally these methods will check whether the cluster can be started with the provided
 			// ClusterSpecification and the configured memory requirements
-			final long cutoff = ContaineredTaskManagerParameters.calculateCutoffMB(flinkConfiguration, taskManagerMemorySize);
-			TaskManagerServices.calculateHeapSizeMB(taskManagerMemorySize - cutoff, flinkConfiguration);
+			Configuration configuration = new Configuration(flinkConfiguration);
+			configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY, taskManagerMemorySize + "m");
+			TaskManagerResource.calculateFromConfiguration(flinkConfiguration);
 		} catch (IllegalArgumentException iae) {
 			throw new FlinkException("Cannot fulfill the minimum memory requirements with the provided " +
 				"cluster specification. Please increase the memory of the cluster.", iae);
@@ -800,7 +800,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			clusterSpecification.getSlotsPerTaskManager());
 
 		configuration.setString(
-			TaskManagerOptions.TASK_MANAGER_HEAP_MEMORY,
+			TaskManagerOptions.TASK_MANAGER_MEMORY,
 			clusterSpecification.getTaskManagerMemoryMB() + "m");
 
 		// Upload the flink configuration

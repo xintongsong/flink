@@ -87,7 +87,7 @@ public class TimestampITCase extends TestLogger {
 
 	private static Configuration getConfiguration() {
 		Configuration config = new Configuration();
-		config.setString(TaskManagerOptions.MANAGED_MEMORY_SIZE, "12m");
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED, "12m");
 		return config;
 	}
 

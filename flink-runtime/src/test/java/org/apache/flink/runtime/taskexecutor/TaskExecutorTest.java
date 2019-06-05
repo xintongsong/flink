@@ -267,8 +267,7 @@ public class TaskExecutorTest extends TestLogger {
 			4096,
 			1,
 			4096,
-			MemoryType.HEAP,
-			false);
+			MemoryType.HEAP);
 
 		networkEnvironment.start();
 

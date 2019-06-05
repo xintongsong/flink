@@ -25,6 +25,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.ResourceManagerOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.rest.RestClient;
 import org.apache.flink.runtime.rest.RestClientConfiguration;
 import org.apache.flink.runtime.rest.handler.legacy.messages.ClusterOverviewWithVersion;
@@ -35,7 +36,6 @@ import org.apache.flink.runtime.rest.messages.ClusterOverviewHeaders;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagersHeaders;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagersInfo;
-import org.apache.flink.runtime.taskmanager.NetworkEnvironmentConfiguration;
 import org.apache.flink.runtime.testutils.CommonTestUtils;
 import org.apache.flink.test.testdata.WordCountData;
 import org.apache.flink.util.ExceptionUtils;
@@ -203,9 +203,7 @@ public class YARNSessionCapacitySchedulerITCase extends YarnTestBase {
 		// set memory constraints (otherwise this is the same test as perJobYarnCluster() above)
 		final long taskManagerMemoryMB = 1024;
 		//noinspection NumericOverflow if the calculation of the total Java memory size overflows, default configuration parameters are wrong in the first place, so we can ignore this inspection
-		final long networkBuffersMB = NetworkEnvironmentConfiguration.calculateNetworkBufferMemory(
-			(taskManagerMemoryMB - ResourceManagerOptions.CONTAINERIZED_HEAP_CUTOFF_MIN.defaultValue()) << 20,
-			new Configuration()) >> 20;
+		final long networkBuffersMB = (long) (taskManagerMemoryMB * TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_FRACTION.defaultValue());
 		final long offHeapMemory = taskManagerMemoryMB
 			- ResourceManagerOptions.CONTAINERIZED_HEAP_CUTOFF_MIN.defaultValue()
 			// cutoff memory (will be added automatically)

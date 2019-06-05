@@ -67,7 +67,7 @@ public class EventTimeAllWindowCheckpointingITCase extends TestLogger {
 
 	private static Configuration getConfiguration() {
 		Configuration config = new Configuration();
-		config.setString(TaskManagerOptions.MANAGED_MEMORY_SIZE, "48m");
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED, "48m");
 		config.setString(AkkaOptions.LOOKUP_TIMEOUT, "60 s");
 		config.setString(AkkaOptions.ASK_TIMEOUT, "60 s");
 		return config;

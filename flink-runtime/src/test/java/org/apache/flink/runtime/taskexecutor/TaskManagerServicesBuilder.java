@@ -57,8 +57,7 @@ public class TaskManagerServicesBuilder {
 			MemoryManager.MIN_PAGE_SIZE,
 			1,
 			MemoryManager.MIN_PAGE_SIZE,
-			MemoryType.HEAP,
-			false);
+			MemoryType.HEAP);
 		ioManager = mock(IOManager.class);
 		networkEnvironment = mock(NetworkEnvironment.class);
 		kvStateService = new KvStateService(new KvStateRegistry(), null, null);

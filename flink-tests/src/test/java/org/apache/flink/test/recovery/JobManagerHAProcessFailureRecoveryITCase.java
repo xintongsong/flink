@@ -250,7 +250,7 @@ public class JobManagerHAProcessFailureRecoveryITCase extends TestLogger {
 		Configuration config = ZooKeeperTestUtils.createZooKeeperHAConfig(
 			zooKeeper.getConnectString(), zookeeperStoragePath.getPath());
 		// Task manager configuration
-		config.setString(TaskManagerOptions.MANAGED_MEMORY_SIZE, "4m");
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED, "4m");
 		config.setInteger(NetworkEnvironmentOptions.NETWORK_NUM_BUFFERS, 100);
 		config.setInteger(TaskManagerOptions.NUM_TASK_SLOTS, 2);
 
