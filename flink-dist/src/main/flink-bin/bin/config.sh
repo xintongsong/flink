@@ -125,7 +125,6 @@ KEY_TASKM_MEM_NETWORK_MIN="taskmanager.memory.network.min"
 KEY_TASKM_MEM_NETWORK_MIN_DEP="taskmanager.network.memory.min" # deprecated
 KEY_TASKM_MEM_NETWORK_MAX="taskmanager.memory.network.max"
 KEY_TASKM_MEM_NETWORK_MAX_DEP="taskmanager.network.memory.max" # deprecated
-KEY_TASKM_MEM_NETWORK_NR="taskmanager.network.numberOfBuffers" # deprecated
 KEY_TASKM_MEM_NETWORK="taskmanager.memory.network" # java env only
 KEY_TASKM_MEM_METASPACE="taskmanager.memory.jvm-metaspace"
 KEY_TASKM_MEM_OVERHEAD_FRACTION="taskmanager.memory.jvm-overhead.fraction"
@@ -495,7 +494,7 @@ fi
 
 # Try read old config key, if new key not exists
 if [ "${FLINK_TM_MEM_NETWORK_FRACTION}" == 0 ]; then
-    FLINK_TM_MEM_NETWORK_FRACTION=$(readFromConfig ${KEY_TASKM_MEM_NETWORK_FRACTION_DEP} 0 "${YAML_CONF}")
+    FLINK_TM_MEM_NETWORK_FRACTION=$(readFromConfig ${KEY_TASKM_MEM_NETWORK_FRACTION_DEP} 0.1 "${YAML_CONF}")
 fi
 
 # Define FLINK_TM_MEM_NETWORK_MIN if it is not already set
@@ -511,7 +510,7 @@ fi
 
 # Try read old config key, if new key not exists
 if [ "${FLINK_TM_MEM_NETWORK_MIN}" == 0 ]; then
-    FLINK_TM_MEM_NETWORK_MIN=$(readFromConfig ${KEY_TASKM_MEM_NETWORK_MIN_DEP} 0 "${YAML_CONF}")
+    FLINK_TM_MEM_NETWORK_MIN=$(readFromConfig ${KEY_TASKM_MEM_NETWORK_MIN_DEP} "64m" "${YAML_CONF}")
 
     if hasUnit ${FLINK_TM_MEM_NETWORK_MIN}; then
         FLINK_TM_MEM_NETWORK_MIN=$(getMebiBytes $(parseBytes ${FLINK_TM_MEM_NETWORK_MIN}))
@@ -533,38 +532,13 @@ fi
 
 # Try read old config key, if new key not exists
 if [ "${FLINK_TM_MEM_NETWORK_MAX}" == 0 ]; then
-    FLINK_TM_MEM_NETWORK_MAX=$(readFromConfig ${KEY_TASKM_MEM_NETWORK_MAX_DEP} 0 "${YAML_CONF}")
+    FLINK_TM_MEM_NETWORK_MAX=$(readFromConfig ${KEY_TASKM_MEM_NETWORK_MAX_DEP} "1g" "${YAML_CONF}")
 
     if hasUnit ${FLINK_TM_MEM_NETWORK_MAX}; then
         FLINK_TM_MEM_NETWORK_MAX=$(getMebiBytes $(parseBytes ${FLINK_TM_MEM_NETWORK_MAX}))
     else
         FLINK_TM_MEM_NETWORK_MAX=$(getMebiBytes $(parseBytes ${FLINK_TM_MEM_NETWORK_MAX}"m"))
     fi
-fi
-
-# Define FLINK_TM_MEM_NETWORK_NR if it is not already set
-if [ -z "${FLINK_TM_MEM_NETWORK_NR}" ]; then
-    FLINK_TM_MEM_NETWORK_NR=$(readFromConfig ${KEY_TASKM_MEM_NETWORK_NR} 0 "${YAML_CONF}")
-    FLINK_TM_MEM_NETWORK_NR=$(getMebiBytes $(parseBytes ${FLINK_TM_MEM_NETWORK_NR}))
-
-    if [ "${FLINK_TM_MEM_NETWORK_FRACTION}" != 0 -o "${FLINK_TM_MEM_NETWORK_MIN}" != 0 -o "${FLINK_TM_MEM_NETWORK_MAX}" != 0 ]; then
-        FLINK_TM_MEM_NETWORK_NR=0
-    fi
-fi
-
-# Set default value for FLINK_TM_MEM_NETWORK_FRACTION
-if [ "${FLINK_TM_MEM_NETWORK_FRACTION}" == 0 ]; then
-    FLINK_TM_MEM_NETWORK_FRACTION=0.1
-fi
-
-# Set default value for FLINK_TM_MEM_NETWORK_MIN
-if [ "${FLINK_TM_MEM_NETWORK_MIN}" == 0 ]; then
-    FLINK_TM_MEM_NETWORK_MIN=$(getMebiBytes $(parseBytes "64m"))
-fi
-
-# Set default value for FLINK_TM_MEM_NETWORK_MAX
-if [ "${FLINK_TM_MEM_NETWORK_MAX}" == 0 ]; then
-    FLINK_TM_MEM_NETWORK_MAX=$(getMebiBytes $(parseBytes "1g"))
 fi
 
 # Define FLINK_TM_MEM_METASPACE if it is not already set
@@ -890,25 +864,18 @@ deriveTotalFlinkFromHeapAndManaged() {
     fi
 
     # configure network memory
-    if [ "${FLINK_TM_MEM_NETWORK_NR}" -le 0 ]; then
-        # configure network memory with min, max and fraction
-
-        # check min, max and fraction of network memory
-        if [ "${FLINK_TM_MEM_NETWORK_MIN}" -le 0 -o "${FLINK_TM_MEM_NETWORK_MAX}" -le 0 -o "${FLINK_TM_MEM_NETWORK_MIN}" -gt "${FLINK_TM_MEM_NETWORK_MAX}" ]; then
-            echo "[ERROR] Configured TaskManager min network memory (${FLINK_TM_MEM_NETWORK_MIN}, from '${KEY_TASKM_MEM_NETWORK_MIN}' or '${KEY_TASKM_MEM_NETWORK_MIN_DEP}') must not be larger than max network memory (${FLINK_TM_MEM_NETWORK_MAX}, from '${KEY_TASKM_MEM_NETWORK_MAX}' or ${KEY_TASKM_MEM_NETWORK_MAX_DEP}'), and both values must be larger than 0."
-            exit 1
-        fi
-        if [[ `awk '{ if ($1 > 0.0 && $1 < 1.0) print "1"; }' <<< "${FLINK_TM_MEM_NETWORK_FRACTION}"` != "1" ]]; then
-            echo "[ERROR] Configured TaskManager network memory fraction (${FLINK_TM_MEM_NETWORK_FRACTION}, from '${KEY_TASKM_MEM_NETWORK_FRACTION}' or '${KEY_TASKM_MEM_NETWORK_FRACTION_DEP}') must be larger then 0.0 and less than 1.0."
-            exit 1
-        fi
-
-        # calculate network memory: network_memory = (heap_memory + managed_memory) / (1 - network_fraction) * network_fraction, constrained by min_network_memory and max_network_memory
-        FLINK_TM_MEM_NETWORK=`awk "BEGIN {x = (${FLINK_TM_MEM_HEAP} + ${FLINK_TM_MEM_MANAGED_SIZE}) * ${FLINK_TM_MEM_NETWORK_FRACTION} / (1 - ${FLINK_TM_MEM_NETWORK_FRACTION}); x = x > ${FLINK_TM_MEM_NETWORK_MAX} ? ${FLINK_TM_MEM_NETWORK_MAX} : x < ${FLINK_TM_MEM_NETWORK_MIN} ? ${FLINK_TM_MEM_NETWORK_MIN} : x; printf \"%.0f\n\", x;}"`
-    else
-        # configure network memory with number of buffers
-        FLINK_TM_MEM_NETWORK=${FLINK_TM_MEM_NETWORK_NR}
+    # check min, max and fraction of network memory
+    if [ "${FLINK_TM_MEM_NETWORK_MIN}" -le 0 -o "${FLINK_TM_MEM_NETWORK_MAX}" -le 0 -o "${FLINK_TM_MEM_NETWORK_MIN}" -gt "${FLINK_TM_MEM_NETWORK_MAX}" ]; then
+        echo "[ERROR] Configured TaskManager min network memory (${FLINK_TM_MEM_NETWORK_MIN}, from '${KEY_TASKM_MEM_NETWORK_MIN}' or '${KEY_TASKM_MEM_NETWORK_MIN_DEP}') must not be larger than max network memory (${FLINK_TM_MEM_NETWORK_MAX}, from '${KEY_TASKM_MEM_NETWORK_MAX}' or ${KEY_TASKM_MEM_NETWORK_MAX_DEP}'), and both values must be larger than 0."
+        exit 1
     fi
+    if [[ `awk '{ if ($1 > 0.0 && $1 < 1.0) print "1"; }' <<< "${FLINK_TM_MEM_NETWORK_FRACTION}"` != "1" ]]; then
+        echo "[ERROR] Configured TaskManager network memory fraction (${FLINK_TM_MEM_NETWORK_FRACTION}, from '${KEY_TASKM_MEM_NETWORK_FRACTION}' or '${KEY_TASKM_MEM_NETWORK_FRACTION_DEP}') must be larger then 0.0 and less than 1.0."
+        exit 1
+    fi
+
+    # calculate network memory: network_memory = (heap_memory + managed_memory) / (1 - network_fraction) * network_fraction, constrained by min_network_memory and max_network_memory
+    FLINK_TM_MEM_NETWORK=`awk "BEGIN {x = (${FLINK_TM_MEM_HEAP} + ${FLINK_TM_MEM_MANAGED_SIZE}) * ${FLINK_TM_MEM_NETWORK_FRACTION} / (1 - ${FLINK_TM_MEM_NETWORK_FRACTION}); x = x > ${FLINK_TM_MEM_NETWORK_MAX} ? ${FLINK_TM_MEM_NETWORK_MAX} : x < ${FLINK_TM_MEM_NETWORK_MIN} ? ${FLINK_TM_MEM_NETWORK_MIN} : x; printf \"%.0f\n\", x;}"`
 
     # set total flink memory
     FLINK_TM_MEM=$((${FLINK_TM_MEM_HEAP}+${FLINK_TM_MEM_MANAGED_SIZE}+${FLINK_TM_MEM_NETWORK}))
@@ -916,25 +883,18 @@ deriveTotalFlinkFromHeapAndManaged() {
 
 deriveHeapAndManagedFromTotalFlink() {
     # configure network memory
-    if [ "${FLINK_TM_MEM_NETWORK_NR}" -le 0 ]; then
-        # configure network memory with min, max and fraction
-
-        # check min, max and fraction of network memory
-        if [ "${FLINK_TM_MEM_NETWORK_MIN}" -le 0 -o "${FLINK_TM_MEM_NETWORK_MAX}" -le 0 -o "${FLINK_TM_MEM_NETWORK_MIN}" -gt "${FLINK_TM_MEM_NETWORK_MAX}" ]; then
-            echo "[ERROR] Configured TaskManager min network memory (${FLINK_TM_MEM_NETWORK_MIN}, from '${KEY_TASKM_MEM_NETWORK_MIN}' or '${KEY_TASKM_MEM_NETWORK_MIN_DEP}') must not be larger than max network memory (${FLINK_TM_MEM_NETWORK_MAX}, from '${KEY_TASKM_MEM_NETWORK_MAX}' or ${KEY_TASKM_MEM_NETWORK_MAX_DEP}'), and both values must be larger than 0."
-            exit 1
-        fi
-        if [[ `awk '{ if ($1 > 0.0 && $1 < 1.0) print "1"; }' <<< "${FLINK_TM_MEM_NETWORK_FRACTION}"` != "1" ]]; then
-            echo "[ERROR] Configured TaskManager network memory fraction (${FLINK_TM_MEM_NETWORK_FRACTION}, from '${KEY_TASKM_MEM_NETWORK_FRACTION}' or '${KEY_TASKM_MEM_NETWORK_FRACTION_DEP}') must be larger then 0.0 and less than 1.0."
-            exit 1
-        fi
-
-        # calculate network memory: network_memory = total_flink_memory * network_fraction, constrained by min_network_memory and max_network_memory
-        FLINK_TM_MEM_NETWORK=`awk "BEGIN {x = ${FLINK_TM_MEM} * ${FLINK_TM_MEM_NETWORK_FRACTION}; x = x > ${FLINK_TM_MEM_NETWORK_MAX} ? ${FLINK_TM_MEM_NETWORK_MAX} : x < ${FLINK_TM_MEM_NETWORK_MIN} ? ${FLINK_TM_MEM_NETWORK_MIN} : x; printf \"%.0f\n\", x;}"`
-    else
-        # configure network memory with number of buffers
-        FLINK_TM_MEM_NETWORK=${FLINK_TM_MEM_NETWORK_NR}
+    # check min, max and fraction of network memory
+    if [ "${FLINK_TM_MEM_NETWORK_MIN}" -le 0 -o "${FLINK_TM_MEM_NETWORK_MAX}" -le 0 -o "${FLINK_TM_MEM_NETWORK_MIN}" -gt "${FLINK_TM_MEM_NETWORK_MAX}" ]; then
+        echo "[ERROR] Configured TaskManager min network memory (${FLINK_TM_MEM_NETWORK_MIN}, from '${KEY_TASKM_MEM_NETWORK_MIN}' or '${KEY_TASKM_MEM_NETWORK_MIN_DEP}') must not be larger than max network memory (${FLINK_TM_MEM_NETWORK_MAX}, from '${KEY_TASKM_MEM_NETWORK_MAX}' or ${KEY_TASKM_MEM_NETWORK_MAX_DEP}'), and both values must be larger than 0."
+        exit 1
     fi
+    if [[ `awk '{ if ($1 > 0.0 && $1 < 1.0) print "1"; }' <<< "${FLINK_TM_MEM_NETWORK_FRACTION}"` != "1" ]]; then
+        echo "[ERROR] Configured TaskManager network memory fraction (${FLINK_TM_MEM_NETWORK_FRACTION}, from '${KEY_TASKM_MEM_NETWORK_FRACTION}' or '${KEY_TASKM_MEM_NETWORK_FRACTION_DEP}') must be larger then 0.0 and less than 1.0."
+        exit 1
+    fi
+
+    # calculate network memory: network_memory = total_flink_memory * network_fraction, constrained by min_network_memory and max_network_memory
+    FLINK_TM_MEM_NETWORK=`awk "BEGIN {x = ${FLINK_TM_MEM} * ${FLINK_TM_MEM_NETWORK_FRACTION}; x = x > ${FLINK_TM_MEM_NETWORK_MAX} ? ${FLINK_TM_MEM_NETWORK_MAX} : x < ${FLINK_TM_MEM_NETWORK_MIN} ? ${FLINK_TM_MEM_NETWORK_MIN} : x; printf \"%.0f\n\", x;}"`
 
     # configure managed memory
     if [ "${FLINK_TM_MEM_MANAGED_SIZE}" -le 0]; then
@@ -957,7 +917,7 @@ deriveHeapAndManagedFromTotalFlink() {
     if [ "${FLINK_TM_MEM_HEAP}" -le 0 ]; then
         echo "[ERROR] Sum of configured TaskManager managed memory (${FLINK_TM_MEM_MANAGED_SIZE}) and network memory (${FLINK_TM_MEM_NETWORK}) must not exceed total flink memory (${FLINK_TM_MEM_HEAP})."
         echo "[ERROR] Managed memory is either explicitly configured from '${KEY_TASKM_MEM_MANAGED_SIZE}' / '${KEY_TASKM_MEM_MANAGED_SIZE_DEP}', or derived from '${KEY_TASKM_MEM_MANAGED_FRACTION}' / '${KEY_TASKM_MEM_MANAGED_FRACTION_DEP}'."
-        echo "[ERROR] Network memory is either explicitly configured from '${KEY_TASKM_MEM_NETWORK_NR}', or derived from '${KEY_TASKM_MEM_NETWORK_FRACTION}' / '${KEY_TASKM_MEM_NETWORK_FRACTION_DEP}', '${KEY_TASKM_MEM_NETWORK_MIN}' / '${KEY_TASKM_MEM_NETWORK_MIN_DEP}', and '${KEY_TASKM_MEM_NETWORK_MAX}' / '${KEY_TASKM_MEM_NETWORK_MAX_DEP}'."
+        echo "[ERROR] Network memory is derived from '${KEY_TASKM_MEM_NETWORK_FRACTION}' / '${KEY_TASKM_MEM_NETWORK_FRACTION_DEP}', '${KEY_TASKM_MEM_NETWORK_MIN}' / '${KEY_TASKM_MEM_NETWORK_MIN_DEP}', and '${KEY_TASKM_MEM_NETWORK_MAX}' / '${KEY_TASKM_MEM_NETWORK_MAX_DEP}'."
         echo "[ERROR] Total flink memory is configured from '${KEY_TASKM_MEM_SIZE}', '${KEY_TASKM_MEM_SIZE_DEP}' or '${KEY_TASKM_MEM_MB_DEP}'."
         exit 1
     fi
@@ -965,7 +925,7 @@ deriveHeapAndManagedFromTotalFlink() {
         echo "[ERROR] Configured TaskManager framework heap memory size (${FLINK_TM_MEM_HEAP_FRAME}, from '${KEY_TASKM_MEM_HEAP_FRAME}') must be larger than 0 and smaller than TaskManager heap memory size (${FLINK_TM_MEM_HEAP}')."
         echo "[ERROR] Heap memory is derived from total flink memory (${FLINK_TM_MEM_HEAP}), managed memory (${FLINK_TM_MEM_MANAGED_SIZE}) and network memory (${FLINK_TM_MEM_NETWORK})."
         echo "[ERROR] Managed memory is either explicitly configured from '${KEY_TASKM_MEM_MANAGED_SIZE}' / '${KEY_TASKM_MEM_MANAGED_SIZE_DEP}', or derived from '${KEY_TASKM_MEM_MANAGED_FRACTION}' / '${KEY_TASKM_MEM_MANAGED_FRACTION_DEP}'."
-        echo "[ERROR] Network memory is either explicitly configured from '${KEY_TASKM_MEM_NETWORK_NR}', or derived from '${KEY_TASKM_MEM_NETWORK_FRACTION}' / '${KEY_TASKM_MEM_NETWORK_FRACTION_DEP}', '${KEY_TASKM_MEM_NETWORK_MIN}' / '${KEY_TASKM_MEM_NETWORK_MIN_DEP}', and '${KEY_TASKM_MEM_NETWORK_MAX}' / '${KEY_TASKM_MEM_NETWORK_MAX_DEP}'."
+        echo "[ERROR] Network memory is derived from '${KEY_TASKM_MEM_NETWORK_FRACTION}' / '${KEY_TASKM_MEM_NETWORK_FRACTION_DEP}', '${KEY_TASKM_MEM_NETWORK_MIN}' / '${KEY_TASKM_MEM_NETWORK_MIN_DEP}', and '${KEY_TASKM_MEM_NETWORK_MAX}' / '${KEY_TASKM_MEM_NETWORK_MAX_DEP}'."
         echo "[ERROR] Total flink memory is configured from '${KEY_TASKM_MEM_SIZE}', '${KEY_TASKM_MEM_SIZE_DEP}' or '${KEY_TASKM_MEM_MB_DEP}'."
         exit 1
     fi
