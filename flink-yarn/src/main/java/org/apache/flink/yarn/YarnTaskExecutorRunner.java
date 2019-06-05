@@ -21,6 +21,7 @@ package org.apache.flink.yarn;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.AkkaOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ConfigurationUtils;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.SecurityOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
@@ -94,6 +95,7 @@ public class YarnTaskExecutorRunner {
 			LOG.info("Current working Directory: {}", currDir);
 
 			final Configuration configuration = GlobalConfiguration.loadConfiguration(currDir);
+			ConfigurationUtils.loadTaskManagerOpts(configuration);
 
 			//TODO provide path.
 			FileSystem.initialize(configuration, PluginUtils.createPluginManagerFromRootFolder(Optional.empty()));

@@ -19,6 +19,7 @@
 package org.apache.flink.configuration;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nonnull;
 
@@ -130,6 +131,27 @@ public class ConfigurationUtils {
 		}
 
 		return configuration;
+	}
+
+	/**
+	 * Load TaskManager configs from java opt to the configuration.
+	 * @param configuration the configuration object
+	 */
+	public static void loadTaskManagerOpts(Configuration configuration) {
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP,
+			Preconditions.checkNotNull(System.getProperty("flink." + TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP)) + "m");
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP_FRAMEWORK,
+			Preconditions.checkNotNull(System.getProperty("flink." + TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP_FRAMEWORK)) + "m");
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED,
+			Preconditions.checkNotNull(System.getProperty("flink." + TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED)) + "m");
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED_OFFHEAP,
+			Preconditions.checkNotNull(System.getProperty("flink." + TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED_OFFHEAP)));
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_SIZE_KEY,
+			Preconditions.checkNotNull(System.getProperty("flink." + TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_SIZE_KEY)) + "m");
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_DIRECT,
+			Preconditions.checkNotNull(System.getProperty("flink." + TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_DIRECT)) + "m");
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_NATIVE,
+			Preconditions.checkNotNull(System.getProperty("flink." + TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_NATIVE)) + "m");
 	}
 
 	@Nonnull

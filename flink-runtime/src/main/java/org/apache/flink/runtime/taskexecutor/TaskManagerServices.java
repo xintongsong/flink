@@ -19,10 +19,6 @@
 package org.apache.flink.runtime.taskexecutor;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.IllegalConfigurationException;
-import org.apache.flink.configuration.MemorySize;
-import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemoryType;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.broadcast.BroadcastVariableManager;
@@ -37,9 +33,7 @@ import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.state.TaskExecutorLocalStateStoresManager;
 import org.apache.flink.runtime.taskexecutor.slot.TaskSlotTable;
 import org.apache.flink.runtime.taskexecutor.slot.TimerService;
-import org.apache.flink.runtime.taskmanager.NetworkEnvironmentConfiguration;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
-import org.apache.flink.runtime.util.ConfigurationParserUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
@@ -53,8 +47,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-
-import static org.apache.flink.configuration.MemorySize.MemoryUnit.MEGA_BYTES;
 
 /**
  * Container for {@link TaskExecutor} services such as the {@link MemoryManager}, {@link IOManager},
@@ -225,8 +217,6 @@ public class TaskManagerServices {
 	 * @param taskManagerMetricGroup metric group of the task manager
 	 * @param resourceID resource ID of the task manager
 	 * @param taskIOExecutor executor for async IO operations
-	 * @param freeHeapMemoryWithDefrag an estimate of the size of the free heap memory
-	 * @param maxJvmHeapMemory the maximum JVM heap size
 	 * @return task manager components
 	 * @throws Exception
 	 */
@@ -234,9 +224,7 @@ public class TaskManagerServices {
 			TaskManagerServicesConfiguration taskManagerServicesConfiguration,
 			MetricGroup taskManagerMetricGroup,
 			ResourceID resourceID,
-			Executor taskIOExecutor,
-			long freeHeapMemoryWithDefrag,
-			long maxJvmHeapMemory) throws Exception {
+			Executor taskIOExecutor) throws Exception {
 
 		// pre-start checks
 		checkTempDirs(taskManagerServicesConfiguration.getTmpDirPaths());
@@ -259,7 +247,7 @@ public class TaskManagerServices {
 			network.getConnectionManager().getDataPort());
 
 		// this call has to happen strictly after the network stack has been initialized
-		final MemoryManager memoryManager = createMemoryManager(taskManagerServicesConfiguration, freeHeapMemoryWithDefrag, maxJvmHeapMemory);
+		final MemoryManager memoryManager = createMemoryManager(taskManagerServicesConfiguration);
 
 		final BroadcastVariableManager broadcastVariableManager = new BroadcastVariableManager();
 
@@ -310,77 +298,22 @@ public class TaskManagerServices {
 	 * Creates a {@link MemoryManager} from the given {@link TaskManagerServicesConfiguration}.
 	 *
 	 * @param taskManagerServicesConfiguration to create the memory manager from
-	 * @param freeHeapMemoryWithDefrag an estimate of the size of the free heap memory
-	 * @param maxJvmHeapMemory the maximum JVM heap size
 	 * @return Memory manager
 	 * @throws Exception
 	 */
 	private static MemoryManager createMemoryManager(
-			TaskManagerServicesConfiguration taskManagerServicesConfiguration,
-			long freeHeapMemoryWithDefrag,
-			long maxJvmHeapMemory) throws Exception {
-		// computing the amount of memory to use depends on how much memory is available
-		// it strictly needs to happen AFTER the network stack has been initialized
+			TaskManagerServicesConfiguration taskManagerServicesConfiguration) throws Exception {
+		long memorySizeMb = taskManagerServicesConfiguration.getTmResource().getManagedMemoryMb();
+		final long memorySize = memorySizeMb << 20; // megabytes to bytes
+		MemoryType memType = taskManagerServicesConfiguration.getTmResource().getManagedMemoryType();
 
-		// check if a value has been configured
-		long configuredMemory = taskManagerServicesConfiguration.getConfiguredMemory();
-
-		MemoryType memType = taskManagerServicesConfiguration.getMemoryType();
-
-		final long memorySize;
-
-		boolean preAllocateMemory = taskManagerServicesConfiguration.isPreAllocateMemory();
-
-		if (configuredMemory > 0) {
-			if (preAllocateMemory) {
-				LOG.info("Using {} MB for managed memory." , configuredMemory);
-			} else {
-				LOG.info("Limiting managed memory to {} MB, memory will be allocated lazily." , configuredMemory);
-			}
-			memorySize = configuredMemory << 20; // megabytes to bytes
-		} else {
-			// similar to #calculateNetworkBufferMemory(TaskManagerServicesConfiguration tmConfig)
-			float memoryFraction = taskManagerServicesConfiguration.getMemoryFraction();
-
-			if (memType == MemoryType.HEAP) {
-				// network buffers allocated off-heap -> use memoryFraction of the available heap:
-				long relativeMemSize = (long) (freeHeapMemoryWithDefrag * memoryFraction);
-				if (preAllocateMemory) {
-					LOG.info("Using {} of the currently free heap space for managed heap memory ({} MB)." ,
-						memoryFraction , relativeMemSize >> 20);
-				} else {
-					LOG.info("Limiting managed memory to {} of the currently free heap space ({} MB), " +
-						"memory will be allocated lazily." , memoryFraction , relativeMemSize >> 20);
-				}
-				memorySize = relativeMemSize;
-			} else if (memType == MemoryType.OFF_HEAP) {
-				// The maximum heap memory has been adjusted according to the fraction (see
-				// calculateHeapSizeMB(long totalJavaMemorySizeMB, Configuration config)), i.e.
-				// maxJvmHeap = jvmTotalNoNet - jvmTotalNoNet * memoryFraction = jvmTotalNoNet * (1 - memoryFraction)
-				// directMemorySize = jvmTotalNoNet * memoryFraction
-				long directMemorySize = (long) (maxJvmHeapMemory / (1.0 - memoryFraction) * memoryFraction);
-				if (preAllocateMemory) {
-					LOG.info("Using {} of the maximum memory size for managed off-heap memory ({} MB)." ,
-						memoryFraction, directMemorySize >> 20);
-				} else {
-					LOG.info("Limiting managed memory to {} of the maximum memory size ({} MB)," +
-						" memory will be allocated lazily.", memoryFraction, directMemorySize >> 20);
-				}
-				memorySize = directMemorySize;
-			} else {
-				throw new RuntimeException("No supported memory type detected.");
-			}
-		}
-
-		// now start the memory manager
 		final MemoryManager memoryManager;
 		try {
 			memoryManager = new MemoryManager(
 				memorySize,
 				taskManagerServicesConfiguration.getNumberOfSlots(),
 				taskManagerServicesConfiguration.getNetworkConfig().networkBufferSize(),
-				memType,
-				preAllocateMemory);
+				memType);
 		} catch (OutOfMemoryError e) {
 			if (memType == MemoryType.HEAP) {
 				throw new Exception("OutOfMemory error (" + e.getMessage() +
@@ -394,66 +327,6 @@ public class TaskManagerServices {
 			}
 		}
 		return memoryManager;
-	}
-
-	/**
-	 * Calculates the amount of heap memory to use (to set via <tt>-Xmx</tt> and <tt>-Xms</tt>)
-	 * based on the total memory to use and the given configuration parameters.
-	 *
-	 * @param totalJavaMemorySizeMB
-	 * 		overall available memory to use (heap and off-heap)
-	 * @param config
-	 * 		configuration object
-	 *
-	 * @return heap memory to use (in megabytes)
-	 */
-	public static long calculateHeapSizeMB(long totalJavaMemorySizeMB, Configuration config) {
-		Preconditions.checkArgument(totalJavaMemorySizeMB > 0);
-
-		// subtract the Java memory used for network buffers (always off-heap)
-		final long networkBufMB = NetworkEnvironmentConfiguration.calculateNetworkBufferMemory(
-			totalJavaMemorySizeMB << 20, // megabytes to bytes
-			config) >> 20; // bytes to megabytes
-		final long remainingJavaMemorySizeMB = totalJavaMemorySizeMB - networkBufMB;
-
-		// split the available Java memory between heap and off-heap
-
-		final boolean useOffHeap = config.getBoolean(TaskManagerOptions.MEMORY_OFF_HEAP);
-
-		final long heapSizeMB;
-		if (useOffHeap) {
-
-			long offHeapSize;
-			String managedMemorySizeDefaultVal = TaskManagerOptions.MANAGED_MEMORY_SIZE.defaultValue();
-			if (!config.getString(TaskManagerOptions.MANAGED_MEMORY_SIZE).equals(managedMemorySizeDefaultVal)) {
-				try {
-					offHeapSize = MemorySize.parse(config.getString(TaskManagerOptions.MANAGED_MEMORY_SIZE), MEGA_BYTES).getMebiBytes();
-				} catch (IllegalArgumentException e) {
-					throw new IllegalConfigurationException(
-						"Could not read " + TaskManagerOptions.MANAGED_MEMORY_SIZE.key(), e);
-				}
-			} else {
-				offHeapSize = Long.valueOf(managedMemorySizeDefaultVal);
-			}
-
-			if (offHeapSize <= 0) {
-				// calculate off-heap section via fraction
-				double fraction = config.getFloat(TaskManagerOptions.MANAGED_MEMORY_FRACTION);
-				offHeapSize = (long) (fraction * remainingJavaMemorySizeMB);
-			}
-
-			ConfigurationParserUtils.checkConfigParameter(offHeapSize < remainingJavaMemorySizeMB, offHeapSize,
-				TaskManagerOptions.MANAGED_MEMORY_SIZE.key(),
-					"Managed memory size too large for " + networkBufMB +
-						" MB network buffer memory and a total of " + totalJavaMemorySizeMB +
-						" MB JVM memory");
-
-			heapSizeMB = remainingJavaMemorySizeMB - offHeapSize;
-		} else {
-			heapSizeMB = remainingJavaMemorySizeMB;
-		}
-
-		return heapSizeMB;
 	}
 
 	/**

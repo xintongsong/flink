@@ -338,7 +338,7 @@ public class MesosTaskManagerParameters {
 		flinkConfig.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_PROCESS, flinkConfig.getInteger(MESOS_RM_TASKS_MEMORY_MB) + "m");
 		ContaineredTaskManagerParameters containeredParameters = ContaineredTaskManagerParameters.create(
 			flinkConfig,
-			TaskManagerResource.fromConfiguration(flinkConfig),
+			TaskManagerResource.calculateFromConfiguration(flinkConfig),
 			flinkConfig.getInteger(MESOS_RM_TASKS_SLOTS));
 
 		double cpus = flinkConfig.getDouble(MESOS_RM_TASKS_CPUS);

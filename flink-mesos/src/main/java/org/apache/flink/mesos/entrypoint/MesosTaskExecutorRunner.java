@@ -20,6 +20,7 @@ package org.apache.flink.mesos.entrypoint;
 
 import org.apache.flink.configuration.AkkaOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ConfigurationUtils;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.mesos.runtime.clusterframework.MesosConfigKeys;
@@ -77,6 +78,7 @@ public class MesosTaskExecutorRunner {
 			LOG.debug("Mesos dynamic properties: {}", dynamicProperties);
 
 			configuration = MesosEntrypointUtils.loadConfiguration(dynamicProperties, LOG);
+			ConfigurationUtils.loadTaskManagerOpts(configuration);
 		}
 		catch (Throwable t) {
 			LOG.error("Failed to load the TaskManager configuration and dynamic properties.", t);

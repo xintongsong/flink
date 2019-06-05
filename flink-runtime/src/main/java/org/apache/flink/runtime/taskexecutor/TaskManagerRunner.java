@@ -320,7 +320,9 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 		}
 
 		final Configuration dynamicProperties = ConfigurationUtils.createConfiguration(clusterConfiguration.getDynamicProperties());
-		return GlobalConfiguration.loadConfiguration(clusterConfiguration.getConfigDir(), dynamicProperties);
+		final Configuration configuration = GlobalConfiguration.loadConfiguration(clusterConfiguration.getConfigDir(), dynamicProperties);
+		ConfigurationUtils.loadTaskManagerOpts(configuration);
+		return configuration;
 	}
 
 	public static void runTaskManager(Configuration configuration, ResourceID resourceId) throws Exception {
@@ -370,9 +372,7 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 			taskManagerServicesConfiguration,
 			taskManagerMetricGroup.f1,
 			resourceID,
-			rpcService.getExecutor(), // TODO replace this later with some dedicated executor for io.
-			EnvironmentInformation.getSizeOfFreeHeapMemoryWithDefrag(),
-			EnvironmentInformation.getMaxJvmHeapMemory());
+			rpcService.getExecutor()); // TODO replace this later with some dedicated executor for io.
 
 		TaskManagerConfiguration taskManagerConfiguration = TaskManagerConfiguration.fromConfiguration(configuration);
 

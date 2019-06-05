@@ -23,6 +23,7 @@ import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.core.memory.MemoryType;
 import org.apache.flink.util.Preconditions;
 
 import java.util.Collections;
@@ -78,7 +79,7 @@ public class TaskManagerResource {
 		this.jvmOverheadMb = jvmOverheadMb;
 	}
 
-	public static TaskManagerResource fromConfiguration(Configuration configuration) {
+	public static TaskManagerResource calculateFromConfiguration(Configuration configuration) {
 		double cpuCores;
 		int heapMemoryMb;
 		int frameworkHeapMemoryMb;
@@ -210,17 +211,24 @@ public class TaskManagerResource {
 			jvmOverheadMb);
 	}
 
-	public static TaskManagerResource fromConfiguration(
-		Configuration configuration,
-		double cpuCores,
-		int heapMemoryMb,
-		int frameworkHeapMemoryMb,
-		int managedMemoryMb,
-		boolean managedMemoryOffheap,
-		int networkMemoryMb,
-		int reservedDirectMemoryMb,
-		int reservedNativeMemoryMb,
-		Map<String, Resource> extendedResources) {
+	public static TaskManagerResource directFromConfiguration(Configuration configuration) {
+		double cpuCores = -1.0;
+		Map<String, Resource> extendedResources = Collections.emptyMap();
+
+		int heapMemoryMb = MemorySize.parse(
+			configuration.getString(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP)).getMebiBytes();
+		int frameworkHeapMemoryMb = MemorySize.parse(
+			configuration.getString(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP_FRAMEWORK)).getMebiBytes();
+		int managedMemoryMb = MemorySize.parse(
+			configuration.getString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED)).getMebiBytes();
+		boolean managedMemoryOffheap =
+			configuration.getString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED_OFFHEAP).equalsIgnoreCase("true");
+		int networkMemoryMb = MemorySize.parse(
+			configuration.getString(TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_SIZE_KEY, "")).getMebiBytes();
+		int reservedDirectMemoryMb = MemorySize.parse(
+			configuration.getString(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_DIRECT)).getMebiBytes();
+		int reservedNativeMemoryMb = MemorySize.parse(
+			configuration.getString(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_NATIVE)).getMebiBytes();
 
 		int jvmMetaspaceMb = MemorySize.parse(
 			configuration.getString(TaskManagerOptions.TASK_MANAGER_MEMORY_JVM_METASPACE)).getMebiBytes();
@@ -287,6 +295,10 @@ public class TaskManagerResource {
 
 	public boolean isManagedMemoryOffheap() {
 		return managedMemoryOffheap;
+	}
+
+	public MemoryType getManagedMemoryType() {
+		return managedMemoryOffheap ? MemoryType.OFF_HEAP : MemoryType.HEAP;
 	}
 
 	public int getNetworkMemoryMb() {

@@ -22,9 +22,8 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
-import org.apache.flink.configuration.TaskManagerOptions;
-import org.apache.flink.core.memory.MemoryType;
 import org.apache.flink.runtime.akka.AkkaUtils;
+import org.apache.flink.runtime.clusterframework.types.TaskManagerResource;
 import org.apache.flink.runtime.registration.RetryingRegistrationConfiguration;
 import org.apache.flink.runtime.taskmanager.NetworkEnvironmentConfiguration;
 import org.apache.flink.runtime.util.ConfigurationParserUtils;
@@ -56,18 +55,7 @@ public class TaskManagerServicesConfiguration {
 	@Nullable
 	private final QueryableStateConfiguration queryableStateConfig;
 
-	/**
-	 * Managed memory (in megabytes).
-	 *
-	 * @see TaskManagerOptions#MANAGED_MEMORY_SIZE
-	 */
-	private final long configuredMemory;
-
-	private final MemoryType memoryType;
-
-	private final boolean preAllocateMemory;
-
-	private final float memoryFraction;
+	private final TaskManagerResource tmResource;
 
 	private final long timerServiceShutdownTimeout;
 
@@ -85,10 +73,7 @@ public class TaskManagerServicesConfiguration {
 			NetworkEnvironmentConfiguration networkConfig,
 			@Nullable QueryableStateConfiguration queryableStateConfig,
 			int numberOfSlots,
-			long configuredMemory,
-			MemoryType memoryType,
-			boolean preAllocateMemory,
-			float memoryFraction,
+			TaskManagerResource tmResource,
 			long timerServiceShutdownTimeout,
 			RetryingRegistrationConfiguration retryingRegistrationConfiguration,
 			Optional<Time> systemResourceMetricsProbingInterval) {
@@ -100,11 +85,7 @@ public class TaskManagerServicesConfiguration {
 		this.networkConfig = checkNotNull(networkConfig);
 		this.queryableStateConfig = queryableStateConfig;
 		this.numberOfSlots = checkNotNull(numberOfSlots);
-
-		this.configuredMemory = configuredMemory;
-		this.memoryType = checkNotNull(memoryType);
-		this.preAllocateMemory = preAllocateMemory;
-		this.memoryFraction = memoryFraction;
+		this.tmResource = checkNotNull(tmResource);
 
 		checkArgument(timerServiceShutdownTimeout >= 0L, "The timer " +
 			"service shutdown timeout must be greater or equal to 0.");
@@ -147,32 +128,8 @@ public class TaskManagerServicesConfiguration {
 		return numberOfSlots;
 	}
 
-	public float getMemoryFraction() {
-		return memoryFraction;
-	}
-
-	/**
-	 * Returns the memory type to use.
-	 *
-	 * @return on-heap or off-heap memory
-	 */
-	MemoryType getMemoryType() {
-		return memoryType;
-	}
-
-	/**
-	 * Returns the size of the managed memory (in megabytes), if configured.
-	 *
-	 * @return managed memory or a default value (currently <tt>-1</tt>) if not configured
-	 *
-	 * @see TaskManagerOptions#MANAGED_MEMORY_SIZE
-	 */
-	long getConfiguredMemory() {
-		return configuredMemory;
-	}
-
-	boolean isPreAllocateMemory() {
-		return preAllocateMemory;
+	public TaskManagerResource getTmResource() {
+		return tmResource;
 	}
 
 	long getTimerServiceShutdownTimeout() {
@@ -218,13 +175,12 @@ public class TaskManagerServicesConfiguration {
 
 		final NetworkEnvironmentConfiguration networkConfig = NetworkEnvironmentConfiguration.fromConfiguration(
 			configuration,
-			maxJvmHeapMemory,
 			localCommunication,
 			remoteAddress);
 
 		final QueryableStateConfiguration queryableStateConfig = QueryableStateConfiguration.fromConfiguration(configuration);
 
-		boolean preAllocateMemory = configuration.getBoolean(TaskManagerOptions.MANAGED_MEMORY_PRE_ALLOCATE);
+		final TaskManagerResource taskManagerResource = TaskManagerResource.directFromConfiguration(configuration);
 
 		long timerServiceShutdownTimeout = AkkaUtils.getTimeout(configuration).toMillis();
 
@@ -238,10 +194,7 @@ public class TaskManagerServicesConfiguration {
 			networkConfig,
 			queryableStateConfig,
 			ConfigurationParserUtils.getSlot(configuration),
-			ConfigurationParserUtils.getManagedMemorySize(configuration),
-			ConfigurationParserUtils.getMemoryType(configuration),
-			preAllocateMemory,
-			ConfigurationParserUtils.getManagedMemoryFraction(configuration),
+			taskManagerResource,
 			timerServiceShutdownTimeout,
 			retryingRegistrationConfiguration,
 			ConfigurationUtils.getSystemResourceMetricsProbingInterval(configuration));

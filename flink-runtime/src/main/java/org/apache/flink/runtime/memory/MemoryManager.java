@@ -93,9 +93,6 @@ public class MemoryManager {
 	/** Number of slots of the task manager. */
 	private final int numberOfSlots;
 
-	/** Flag marking whether the memory manager immediately allocates the memory. */
-	private final boolean isPreAllocated;
-
 	/** The number of memory pages that have not been allocated and are available for lazy allocation. */
 	private int numNonAllocatedPages;
 
@@ -110,7 +107,7 @@ public class MemoryManager {
 	 * @param numberOfSlots The number of slots of the task manager.
 	 */
 	public MemoryManager(long memorySize, int numberOfSlots) {
-		this(memorySize, numberOfSlots, DEFAULT_PAGE_SIZE, MemoryType.HEAP, true);
+		this(memorySize, numberOfSlots, DEFAULT_PAGE_SIZE, MemoryType.HEAP);
 	}
 
 	/**
@@ -120,11 +117,9 @@ public class MemoryManager {
 	 * @param numberOfSlots The number of slots of the task manager.
 	 * @param pageSize The size of the pages handed out by the memory manager.
 	 * @param memoryType The type of memory (heap / off-heap) that the memory manager should allocate.
-	 * @param preAllocateMemory True, if the memory manager should immediately allocate all memory, false
-	 *                          if it should allocate and release the memory as needed.
 	 */
 	public MemoryManager(long memorySize, int numberOfSlots, int pageSize,
-							MemoryType memoryType, boolean preAllocateMemory) {
+							MemoryType memoryType) {
 		// sanity checks
 		if (memoryType == null) {
 			throw new NullPointerException();
@@ -158,20 +153,15 @@ public class MemoryManager {
 		}
 
 		this.allocatedSegments = new HashMap<Object, Set<MemorySegment>>();
-		this.isPreAllocated = preAllocateMemory;
 
-		this.numNonAllocatedPages = preAllocateMemory ? 0 : this.totalNumPages;
-		final int memToAllocate = preAllocateMemory ? this.totalNumPages : 0;
+		this.numNonAllocatedPages = this.totalNumPages;
+		final int memToAllocate = 0;
 
 		switch (memoryType) {
 			case HEAP:
 				this.memoryPool = new HybridHeapMemoryPool(memToAllocate, pageSize);
 				break;
 			case OFF_HEAP:
-				if (!preAllocateMemory) {
-					LOG.warn("It is advisable to set 'taskmanager.memory.preallocate' to true when" +
-						" the memory type 'taskmanager.memory.off-heap' is set to true.");
-				}
 				this.memoryPool = new HybridOffHeapMemoryPool(memToAllocate, pageSize);
 				break;
 			default:
@@ -179,12 +169,11 @@ public class MemoryManager {
 		}
 
 		LOG.debug("Initialized MemoryManager with total memory size {}, number of slots {}, page size {}, " +
-				"memory type {}, pre allocate memory {} and number of non allocated pages {}.",
+				"memory type {} and number of non allocated pages {}.",
 			memorySize,
 			numberOfSlots,
 			pageSize,
 			memoryType,
-			preAllocateMemory,
 			numNonAllocatedPages);
 	}
 
@@ -235,9 +224,7 @@ public class MemoryManager {
 	 */
 	public boolean verifyEmpty() {
 		synchronized (lock) {
-			return isPreAllocated ?
-					memoryPool.getNumberOfAvailableMemorySegments() == totalNumPages :
-					numNonAllocatedPages == totalNumPages;
+			return numNonAllocatedPages == totalNumPages;
 		}
 	}
 
@@ -305,21 +292,12 @@ public class MemoryManager {
 				allocatedSegments.put(owner, segmentsForOwner);
 			}
 
-			if (isPreAllocated) {
-				for (int i = numPages; i > 0; i--) {
-					MemorySegment segment = memoryPool.requestSegmentFromPool(owner);
-					target.add(segment);
-					segmentsForOwner.add(segment);
-				}
+			for (int i = numPages; i > 0; i--) {
+				MemorySegment segment = memoryPool.allocateNewSegment(owner);
+				target.add(segment);
+				segmentsForOwner.add(segment);
 			}
-			else {
-				for (int i = numPages; i > 0; i--) {
-					MemorySegment segment = memoryPool.allocateNewSegment(owner);
-					target.add(segment);
-					segmentsForOwner.add(segment);
-				}
-				numNonAllocatedPages -= numPages;
-			}
+			numNonAllocatedPages -= numPages;
 		}
 		// -------------------- END CRITICAL SECTION -------------------
 	}
@@ -363,14 +341,8 @@ public class MemoryManager {
 					}
 				}
 
-				if (isPreAllocated) {
-					// release the memory in any case
-					memoryPool.returnSegmentToPool(segment);
-				}
-				else {
-					segment.free();
-					numNonAllocatedPages++;
-				}
+				segment.free();
+				numNonAllocatedPages++;
 			}
 			catch (Throwable t) {
 				throw new RuntimeException("Error removing book-keeping reference to allocated memory segment.", t);
@@ -436,13 +408,8 @@ public class MemoryManager {
 								}
 							}
 
-							if (isPreAllocated) {
-								memoryPool.returnSegmentToPool(seg);
-							}
-							else {
-								seg.free();
-								numNonAllocatedPages++;
-							}
+							seg.free();
+							numNonAllocatedPages++;
 						}
 						catch (Throwable t) {
 							throw new RuntimeException(
@@ -489,17 +456,10 @@ public class MemoryManager {
 			}
 
 			// free each segment
-			if (isPreAllocated) {
-				for (MemorySegment seg : segments) {
-					memoryPool.returnSegmentToPool(seg);
-				}
+			for (MemorySegment seg : segments) {
+				seg.free();
 			}
-			else {
-				for (MemorySegment seg : segments) {
-					seg.free();
-				}
-				numNonAllocatedPages += segments.size();
-			}
+			numNonAllocatedPages += segments.size();
 
 			segments.clear();
 		}
@@ -517,15 +477,6 @@ public class MemoryManager {
 	 */
 	public MemoryType getMemoryType() {
 		return memoryType;
-	}
-
-	/**
-	 * Checks whether this memory manager pre-allocates the memory.
-	 *
-	 * @return True if the memory manager pre-allocates the memory, false if it allocates as needed.
-	 */
-	public boolean isPreAllocated() {
-		return isPreAllocated;
 	}
 
 	/**
