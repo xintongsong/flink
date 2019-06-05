@@ -22,8 +22,10 @@ import org.apache.flink.configuration.AkkaOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ConfigurationUtils;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.clusterframework.types.TaskManagerResource;
@@ -444,13 +446,13 @@ public class BootstrapTools {
 			javaOpts += " " + flinkConfig.getString(CoreOptions.FLINK_TM_JVM_OPTIONS);
 		}
 
-		javaOpts += " -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP.key() + tmResource.getHeapMemoryMb();
-		javaOpts += " -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP_FRAMEWORK.key() + tmResource.getFrameworkHeapMemoryMb();
-		javaOpts += " -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED.key() + tmResource.getManagedMemoryMb();
-		javaOpts += " -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED_OFFHEAP.key() + tmResource.isManagedMemoryOffheap();
-		javaOpts += " -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_SIZE_KEY + tmResource.getNetworkMemoryMb();
-		javaOpts += " -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_DIRECT.key() + tmResource.getJvmDirectMemoryMb();
-		javaOpts += " -Dflink." + TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_NATIVE.key() + tmResource.getReservedNativeMemoryMb();
+		javaOpts += " " + ConfigurationUtils.toOpt(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP.key(), tmResource.getHeapMemoryMb() + "m");
+		javaOpts += " " + ConfigurationUtils.toOpt(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP_FRAMEWORK.key(), tmResource.getFrameworkHeapMemoryMb() + "m");
+		javaOpts += " " + ConfigurationUtils.toOpt(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED.key(), tmResource.getManagedMemoryMb() + "m");
+		javaOpts += " " + ConfigurationUtils.toOpt(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED_OFFHEAP.key(), String.valueOf(tmResource.isManagedMemoryOffheap()));
+		javaOpts += " " + ConfigurationUtils.toOpt(TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_SIZE_KEY, tmResource.getNetworkMemoryMb() + "m");
+		javaOpts += " " + ConfigurationUtils.toOpt(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_DIRECT.key(), tmResource.getJvmDirectMemoryMb() + "m");
+		javaOpts += " " + ConfigurationUtils.toOpt(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_NATIVE.key(), tmResource.getReservedNativeMemoryMb() + "m");
 
 		//applicable only for YarnMiniCluster secure test run
 		//krb5.conf file will be available as local resource in JM/TM container

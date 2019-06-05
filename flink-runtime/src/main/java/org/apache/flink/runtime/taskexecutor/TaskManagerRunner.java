@@ -321,7 +321,7 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 
 		final Configuration dynamicProperties = ConfigurationUtils.createConfiguration(clusterConfiguration.getDynamicProperties());
 		final Configuration configuration = GlobalConfiguration.loadConfiguration(clusterConfiguration.getConfigDir(), dynamicProperties);
-		ConfigurationUtils.loadTaskManagerOpts(configuration);
+		ConfigurationUtils.loadFromSystemProperties(configuration);
 		return configuration;
 	}
 

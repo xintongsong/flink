@@ -95,7 +95,7 @@ public class YarnTaskExecutorRunner {
 			LOG.info("Current working Directory: {}", currDir);
 
 			final Configuration configuration = GlobalConfiguration.loadConfiguration(currDir);
-			ConfigurationUtils.loadTaskManagerOpts(configuration);
+			ConfigurationUtils.loadFromSystemProperties(configuration);
 
 			//TODO provide path.
 			FileSystem.initialize(configuration, PluginUtils.createPluginManagerFromRootFolder(Optional.empty()));

@@ -36,6 +36,7 @@ import static org.apache.flink.configuration.MetricOptions.SYSTEM_RESOURCE_METRI
  */
 public class ConfigurationUtils {
 
+	public static final String PROPERTY_NAME_PREFIX = "flinkconf.";
 	private static final String[] EMPTY = new String[0];
 
 	/**
@@ -134,24 +135,21 @@ public class ConfigurationUtils {
 	}
 
 	/**
-	 * Load TaskManager configs from java opt to the configuration.
+	 * Load configs from java system properties to the configuration.
 	 * @param configuration the configuration object
 	 */
-	public static void loadTaskManagerOpts(Configuration configuration) {
-		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP,
-			Preconditions.checkNotNull(System.getProperty("flink." + TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP)) + "m");
-		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP_FRAMEWORK,
-			Preconditions.checkNotNull(System.getProperty("flink." + TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP_FRAMEWORK)) + "m");
-		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED,
-			Preconditions.checkNotNull(System.getProperty("flink." + TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED)) + "m");
-		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED_OFFHEAP,
-			Preconditions.checkNotNull(System.getProperty("flink." + TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED_OFFHEAP)));
-		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_SIZE_KEY,
-			Preconditions.checkNotNull(System.getProperty("flink." + TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_SIZE_KEY)) + "m");
-		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_DIRECT,
-			Preconditions.checkNotNull(System.getProperty("flink." + TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_DIRECT)) + "m");
-		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_NATIVE,
-			Preconditions.checkNotNull(System.getProperty("flink." + TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_NATIVE)) + "m");
+	public static void loadFromSystemProperties(Configuration configuration) {
+		Properties properties = System.getProperties();
+		for (String key : properties.stringPropertyNames()) {
+			if (key.startsWith(PROPERTY_NAME_PREFIX)) {
+				String value = properties.getProperty(key);
+				configuration.setString(key.substring(PROPERTY_NAME_PREFIX.length()), value);
+			}
+		}
+	}
+
+	public static String toOpt(String key, String value) {
+		return "-D" + PROPERTY_NAME_PREFIX + key + "=" + value;
 	}
 
 	@Nonnull

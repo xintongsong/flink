@@ -78,7 +78,7 @@ public class MesosTaskExecutorRunner {
 			LOG.debug("Mesos dynamic properties: {}", dynamicProperties);
 
 			configuration = MesosEntrypointUtils.loadConfiguration(dynamicProperties, LOG);
-			ConfigurationUtils.loadTaskManagerOpts(configuration);
+			ConfigurationUtils.loadFromSystemProperties(configuration);
 		}
 		catch (Throwable t) {
 			LOG.error("Failed to load the TaskManager configuration and dynamic properties.", t);
