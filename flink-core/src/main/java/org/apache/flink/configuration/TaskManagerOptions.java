@@ -181,34 +181,6 @@ public class TaskManagerOptions {
 				+ " portions.");
 
 	/**
-	 * JVM heap size for the TaskManagers with memory size.
-	 *
-	 * @deprecated use {@link #TASK_MANAGER_MEMORY} for total Flink memory, and {@link #TASK_MANAGER_MEMORY_HEAP} for
-	 * heap memory
-	 */
-	@Deprecated
-	public static final ConfigOption<String> TASK_MANAGER_HEAP_MEMORY =
-		key("taskmanager.heap.size")
-			.defaultValue("1024m")
-			.withDescription("JVM heap size for the TaskManagers, which are the parallel workers of" +
-				" the system. On YARN setups, this value is automatically configured to the size of the TaskManager's" +
-				" YARN container, minus a certain tolerance value.");
-
-	/**
-	 * JVM heap size (in megabytes) for the TaskManagers.
-	 *
-	 * @deprecated use {@link #TASK_MANAGER_MEMORY} for total Flink memory, and {@link #TASK_MANAGER_MEMORY_HEAP} for
-	 * heap memory
-	 */
-	@Deprecated
-	public static final ConfigOption<Integer> TASK_MANAGER_HEAP_MEMORY_MB =
-		key("taskmanager.heap.mb")
-			.defaultValue(1024)
-			.withDescription("JVM heap size (in megabytes) for the TaskManagers, which are the parallel workers of" +
-				" the system. On YARN setups, this value is automatically configured to the size of the TaskManager's" +
-				" YARN container, minus a certain tolerance value.");
-
-	/**
 	 * Total process memory size for the TaskManagers.
 	 */
 	public static final ConfigOption<String> TASK_MANAGER_MEMORY_PROCESS =
@@ -232,6 +204,20 @@ public class TaskManagerOptions {
 				+ " taskmanager.memory.network.[min|max|fraction]).");
 
 	/**
+	 * JVM heap size (in megabytes) for the TaskManagers.
+	 *
+	 * @deprecated use {@link #TASK_MANAGER_MEMORY} for total Flink memory, and {@link #TASK_MANAGER_MEMORY_HEAP} for
+	 * heap memory
+	 */
+	@Deprecated
+	public static final ConfigOption<Integer> TASK_MANAGER_HEAP_MEMORY_MB =
+		key("taskmanager.heap.mb")
+			.defaultValue(1024)
+			.withDescription("JVM heap size (in megabytes) for the TaskManagers, which are the parallel workers of" +
+				" the system. On YARN setups, this value is automatically configured to the size of the TaskManager's" +
+				" YARN container, minus a certain tolerance value.");
+
+	/**
 	 * JVM heap memory size for Flink for the TaskManagers.
 	 */
 	public static final ConfigOption<String> TASK_MANAGER_MEMORY_HEAP_FRAMEWORK =
@@ -246,7 +232,6 @@ public class TaskManagerOptions {
 	public static final ConfigOption<String> TASK_MANAGER_MEMORY_MANAGED =
 		key("taskmanager.memory.managed.size")
 			.noDefaultValue()
-			.withDeprecatedKeys("taskmanager.memory.size")
 			.withDescription("Managed memory size for the TaskManagers, which is the amount of memory reserved for"
 				+ " sorting, hash tables, caching of intermediate results and state backends. Memory consumers can"
 				+ " either allocate memory from the memory manager in the form of MemorySegments, or reserve bytes from"
@@ -287,7 +272,7 @@ public class TaskManagerOptions {
 	public static final ConfigOption<Float> TASK_MANAGER_MEMORY_NETWORK_FRACTION =
 		key("taskmanager.memory.network.fraction")
 			.defaultValue(0.1f)
-			.withDeprecatedKeys("taskmanager.network.memory.fraction")
+			.withFallbackKeys("taskmanager.network.memory.fraction")
 			.withDescription("Fraction of total Flink memory to use for network buffers. This determines how many"
 				+ " streaming data exchange channels a TaskManager can have at the same time and how well buffered the"
 				+ " channels are. If a job is rejected or you get a warning that the system has not enough buffers"
@@ -300,7 +285,7 @@ public class TaskManagerOptions {
 	public static final ConfigOption<String> TASK_MANAGER_MEMORY_NETWORK_MIN =
 		key("taskmanager.memory.network.min")
 			.defaultValue("64mb")
-			.withDeprecatedKeys("taskmanager.network.memory.min")
+			.withFallbackKeys("taskmanager.network.memory.min")
 			.withDescription("Minimum memory size for network buffers.");
 
 	/**
@@ -309,7 +294,7 @@ public class TaskManagerOptions {
 	public static final ConfigOption<String> TASK_MANAGER_MEMORY_NETWORK_MAX =
 		key("taskmanager.memory.network.max")
 			.defaultValue("1gb")
-			.withDeprecatedKeys("taskmanager.network.memory.max")
+			.withFallbackKeys("taskmanager.network.memory.max")
 			.withDescription("Maximum memory size for network buffers.");
 
 	/**
