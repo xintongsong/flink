@@ -21,6 +21,8 @@ package org.apache.flink.runtime.minicluster;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.runtime.clusterframework.types.TaskManagerResource;
+import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nullable;
@@ -114,6 +116,20 @@ public class TestingMiniClusterConfiguration extends MiniClusterConfiguration {
 			modifiedConfiguration.setInteger(
 				RestOptions.PORT,
 				modifiedConfiguration.getInteger(RestOptions.PORT, 0));
+
+			if (!modifiedConfiguration.contains(TaskManagerOptions.TASK_MANAGER_MEMORY) &&
+				!modifiedConfiguration.contains(TaskManagerOptions.TASK_MANAGER_MEMORY_PROCESS)) {
+				modifiedConfiguration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY,
+					String.valueOf(EnvironmentInformation.getMaxJvmHeapMemory() >> 20) + "m"); // bytes to megabytes
+			}
+			final TaskManagerResource tmResource = TaskManagerResource.calculateFromConfiguration(modifiedConfiguration);
+			modifiedConfiguration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP, tmResource.getHeapMemoryMb() + "m");
+			modifiedConfiguration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP_FRAMEWORK, tmResource.getFrameworkHeapMemoryMb() + "m");
+			modifiedConfiguration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED, tmResource.getManagedMemoryMb() + "m");
+			modifiedConfiguration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED_OFFHEAP, String.valueOf(tmResource.isManagedMemoryOffheap()));
+			modifiedConfiguration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_SIZE_KEY, tmResource.getNetworkMemoryMb() + "m");
+			modifiedConfiguration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_DIRECT, tmResource.getReservedDirectMemoryMb() + "m");
+			modifiedConfiguration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_NATIVE, tmResource.getReservedNativeMemoryMb() + "m");
 
 			return new TestingMiniClusterConfiguration(
 				modifiedConfiguration,

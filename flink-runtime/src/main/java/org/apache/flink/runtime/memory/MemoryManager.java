@@ -124,8 +124,8 @@ public class MemoryManager {
 		if (memoryType == null) {
 			throw new NullPointerException();
 		}
-		if (memorySize <= 0) {
-			throw new IllegalArgumentException("Size of total memory must be positive.");
+		if (memorySize < 0) {
+			throw new IllegalArgumentException("Size of total memory must be larger than or equal to 0.");
 		}
 		if (pageSize < MIN_PAGE_SIZE) {
 			throw new IllegalArgumentException("The page size must be at least " + MIN_PAGE_SIZE + " bytes.");
@@ -148,7 +148,7 @@ public class MemoryManager {
 					+ ") corresponds to more than MAX_INT pages.");
 		}
 		this.totalNumPages = (int) numPagesLong;
-		if (this.totalNumPages < 1) {
+		if (this.totalNumPages < 0) {
 			throw new IllegalArgumentException("The given amount of memory amounted to less than one page.");
 		}
 

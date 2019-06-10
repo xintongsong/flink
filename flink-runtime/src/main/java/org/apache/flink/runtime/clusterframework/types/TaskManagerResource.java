@@ -203,7 +203,7 @@ public class TaskManagerResource {
 					configuration.getString(TaskManagerOptions.TASK_MANAGER_MEMORY)).getMebiBytes();
 				Preconditions.checkArgument(totalFlinkMemoryMb > 0,
 					String.format("Configured TaskManager total flink memory size (%dm, from '%s') must be larger than 0.",
-						totalFlinkMemoryMb, TaskManagerOptions.TASK_MANAGER_MEMORY));
+						totalFlinkMemoryMb, TaskManagerOptions.TASK_MANAGER_MEMORY.key()));
 				jvmOverheadMb = getJvmOverheadMb(configuration,
 					totalFlinkMemoryMb + jvmMetaspaceMb + reservedDirectMemoryMb + reservedNativeMemoryMb,
 					false);
@@ -254,11 +254,11 @@ public class TaskManagerResource {
 					+ "Either heap memory size (from '%s') and managed memory size (from '%s'), "
 					+ "or total flink memory (from '%s'), "
 					+ "or total process memory (from '%s') "
-					+ "need to be configured."),
+					+ "need to be configured.",
 					TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP.key(),
 					TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED.key(),
 					TaskManagerOptions.TASK_MANAGER_MEMORY.key(),
-					TaskManagerOptions.TASK_MANAGER_MEMORY_PROCESS.key());
+					TaskManagerOptions.TASK_MANAGER_MEMORY_PROCESS.key()));
 			return null;
 		}
 

@@ -20,17 +20,18 @@ package org.apache.flink.runtime.taskexecutor;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
-import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.NetworkEnvironmentOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.blob.BlobCacheService;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.clusterframework.types.TaskManagerResource;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.TestingHighAvailabilityServices;
 import org.apache.flink.runtime.metrics.NoOpMetricRegistry;
 import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.TestLogger;
 
@@ -47,7 +48,6 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -90,6 +90,8 @@ public class TaskManagerRunnerStartupTest extends TestLogger {
 
 		try {
 			Configuration cfg = new Configuration();
+			setupTaskManagerMemoryConfiguration(cfg);
+
 			cfg.setString(CoreOptions.TMP_DIRS, nonWritable.getAbsolutePath());
 
 			try {
@@ -124,23 +126,7 @@ public class TaskManagerRunnerStartupTest extends TestLogger {
 		// something invalid
 		cfg.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED, "-42m");
 		try {
-
-			startTaskManager(
-				cfg,
-				rpcService,
-				highAvailabilityServices);
-
-			fail("Should fail synchronously with an exception");
-		} catch (IllegalConfigurationException e) {
-			// splendid!
-		}
-
-		// something ridiculously high
-		final long memSize = (((long) Integer.MAX_VALUE - 1) *
-			MemorySize.parse(TaskManagerOptions.MEMORY_SEGMENT_SIZE.defaultValue()).getBytes()) >> 20;
-		cfg.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED, memSize + "m");
-		try {
-
+			setupTaskManagerMemoryConfiguration(cfg);
 			startTaskManager(
 				cfg,
 				rpcService,
@@ -149,7 +135,22 @@ public class TaskManagerRunnerStartupTest extends TestLogger {
 			fail("Should fail synchronously with an exception");
 		} catch (Exception e) {
 			// splendid!
-			assertTrue(e.getCause() instanceof OutOfMemoryError);
+		}
+
+		// something ridiculously high
+		final long memSize = (((long) Integer.MAX_VALUE - 1) *
+			MemorySize.parse(TaskManagerOptions.MEMORY_SEGMENT_SIZE.defaultValue()).getBytes()) >> 20;
+		cfg.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED, memSize + "m");
+		try {
+			setupTaskManagerMemoryConfiguration(cfg);
+			startTaskManager(
+				cfg,
+				rpcService,
+				highAvailabilityServices);
+
+			fail("Should fail synchronously with an exception");
+		} catch (Exception e) {
+			// splendid!
 		}
 	}
 
@@ -162,6 +163,8 @@ public class TaskManagerRunnerStartupTest extends TestLogger {
 
 		try {
 			final Configuration cfg = new Configuration();
+			setupTaskManagerMemoryConfiguration(cfg);
+
 			cfg.setInteger(NetworkEnvironmentOptions.DATA_PORT, blocker.getLocalPort());
 
 			startTaskManager(
@@ -183,6 +186,22 @@ public class TaskManagerRunnerStartupTest extends TestLogger {
 		final RpcService rpcService = mock(RpcService.class);
 		when(rpcService.getAddress()).thenReturn(LOCAL_HOST);
 		return rpcService;
+	}
+
+	private static void setupTaskManagerMemoryConfiguration(Configuration config) {
+		if (!config.contains(TaskManagerOptions.TASK_MANAGER_MEMORY) &&
+			!config.contains(TaskManagerOptions.TASK_MANAGER_MEMORY_PROCESS)) {
+			config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY,
+				String.valueOf(EnvironmentInformation.getMaxJvmHeapMemory() >> 20) + "m"); // bytes to megabytes
+		}
+		final TaskManagerResource tmResource = TaskManagerResource.calculateFromConfiguration(config);
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP, tmResource.getHeapMemoryMb() + "m");
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP_FRAMEWORK, tmResource.getFrameworkHeapMemoryMb() + "m");
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED, tmResource.getManagedMemoryMb() + "m");
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED_OFFHEAP, String.valueOf(tmResource.isManagedMemoryOffheap()));
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_SIZE_KEY, tmResource.getNetworkMemoryMb() + "m");
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_DIRECT, tmResource.getReservedDirectMemoryMb() + "m");
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_NATIVE, tmResource.getReservedNativeMemoryMb() + "m");
 	}
 
 	private static void startTaskManager(

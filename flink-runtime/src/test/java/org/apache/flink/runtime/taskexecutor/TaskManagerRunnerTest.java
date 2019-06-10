@@ -22,7 +22,9 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.clusterframework.types.TaskManagerResource;
 import org.apache.flink.runtime.testutils.SystemExitTrackingSecurityManager;
+import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.After;
@@ -87,6 +89,20 @@ public class TaskManagerRunnerTest extends TestLogger {
 		final Configuration configuration = new Configuration();
 		configuration.setString(JobManagerOptions.ADDRESS, "localhost");
 		configuration.setString(TaskManagerOptions.HOST, "localhost");
+
+		if (!configuration.contains(TaskManagerOptions.TASK_MANAGER_MEMORY) &&
+			!configuration.contains(TaskManagerOptions.TASK_MANAGER_MEMORY_PROCESS)) {
+			configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY,
+				String.valueOf(EnvironmentInformation.getMaxJvmHeapMemory() >> 20)+"m"); // bytes to megabytes
+		}
+		final TaskManagerResource tmResource = TaskManagerResource.calculateFromConfiguration(configuration);
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP, tmResource.getHeapMemoryMb() + "m");
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP_FRAMEWORK, tmResource.getFrameworkHeapMemoryMb() + "m");
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED, tmResource.getManagedMemoryMb() + "m");
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED_OFFHEAP, String.valueOf(tmResource.isManagedMemoryOffheap()));
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_SIZE_KEY, tmResource.getNetworkMemoryMb() + "m");
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_DIRECT, tmResource.getReservedDirectMemoryMb() + "m");
+		configuration.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_NATIVE, tmResource.getReservedNativeMemoryMb() + "m");
 		return configuration;
 	}
 

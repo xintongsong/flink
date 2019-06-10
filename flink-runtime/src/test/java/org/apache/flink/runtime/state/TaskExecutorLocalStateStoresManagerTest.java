@@ -21,13 +21,16 @@ package org.apache.flink.runtime.state;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.clusterframework.types.TaskManagerResource;
 import org.apache.flink.runtime.concurrent.Executors;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.taskexecutor.TaskManagerServices;
 import org.apache.flink.runtime.taskexecutor.TaskManagerServicesConfiguration;
+import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.TestLogger;
 
@@ -204,6 +207,21 @@ public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
 
 	private TaskManagerServicesConfiguration createTaskManagerServiceConfiguration(
 			Configuration config) throws IOException {
+
+		if (!config.contains(TaskManagerOptions.TASK_MANAGER_MEMORY) &&
+			!config.contains(TaskManagerOptions.TASK_MANAGER_MEMORY_PROCESS)) {
+			config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY,
+				String.valueOf(EnvironmentInformation.getMaxJvmHeapMemory() >> 20)+"m"); // bytes to megabytes
+		}
+		final TaskManagerResource tmResource = TaskManagerResource.calculateFromConfiguration(config);
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP, tmResource.getHeapMemoryMb() + "m");
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_HEAP_FRAMEWORK, tmResource.getFrameworkHeapMemoryMb() + "m");
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED, tmResource.getManagedMemoryMb() + "m");
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_MANAGED_OFFHEAP, String.valueOf(tmResource.isManagedMemoryOffheap()));
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_NETWORK_SIZE_KEY, tmResource.getNetworkMemoryMb() + "m");
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_DIRECT, tmResource.getReservedDirectMemoryMb() + "m");
+		config.setString(TaskManagerOptions.TASK_MANAGER_MEMORY_RESERVED_NATIVE, tmResource.getReservedNativeMemoryMb() + "m");
+
 		return TaskManagerServicesConfiguration.fromConfiguration(
 			config, MEM_SIZE_PARAM, InetAddress.getLocalHost(), true);
 	}

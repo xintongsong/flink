@@ -185,7 +185,7 @@ public class TaskManagerOptions {
 	 */
 	public static final ConfigOption<String> TASK_MANAGER_MEMORY_PROCESS =
 		key("taskmanager.memory.process")
-			.noDefaultValue()
+			.defaultValue("1024m")
 			.withDescription("Total process memory size for the TaskManagers, which are the parallel workers of the system."
 				+ " This includes JVM heap memory, managed memory, network memory, JVM metaspace, other JVM overhead,"
 				+ " and user-allocated direct and native memory. On YARN setups, this value is automatically configured"
