@@ -113,6 +113,17 @@ public class ConfigurationUtils {
 		return splitPaths(configValue);
 	}
 
+	public static Time getStandaloneSlotResourcesRegistrationTimeout(Configuration configuration) {
+		final Time timeout;
+		if (configuration.contains(ResourceManagerOptions.STANDALONE_SLOT_RESOURCES_REGISTRATION_TIMEOUT) &&
+			configuration.getLong(ResourceManagerOptions.STANDALONE_SLOT_RESOURCES_REGISTRATION_TIMEOUT) > 0) {
+			timeout = Time.milliseconds(configuration.getLong(ResourceManagerOptions.STANDALONE_SLOT_RESOURCES_REGISTRATION_TIMEOUT));
+		} else {
+			timeout = Time.milliseconds(configuration.getLong(JobManagerOptions.SLOT_REQUEST_TIMEOUT));
+		}
+		return timeout;
+	}
+
 	/**
 	 * Creates a new {@link Configuration} from the given {@link Properties}.
 	 *

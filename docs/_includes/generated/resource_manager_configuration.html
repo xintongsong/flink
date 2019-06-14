@@ -33,6 +33,11 @@
             <td>Defines the network port to connect to for communication with the resource manager. By default, the port of the JobManager, because the same ActorSystem is used. Its not possible to use this configuration key to define port ranges.</td>
         </tr>
         <tr>
+            <td><h5>resourcemanager.standalone.slot-resources-registration-timeout</h5></td>
+            <td style="word-wrap: break-word;">-1</td>
+            <td>Time in milliseconds for the slot resources to register in standalone cluster. This is used by the resource manager in standalone mode to decide in how long time the task executors should register. After this time, slot requests that exceed capacity of all registered slots will be considered not satisfiable and failed. If not configured, slot request timeout will be used by default.</td>
+        </tr>
+        <tr>
             <td><h5>resourcemanager.taskmanager-timeout</h5></td>
             <td style="word-wrap: break-word;">30000</td>
             <td>The timeout for an idle task manager to be released.</td>

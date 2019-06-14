@@ -48,7 +48,9 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -123,6 +125,9 @@ public class SlotManager implements AutoCloseable {
 	/** Release task executor only when each produced result partition is either consumed or failed. */
 	private final boolean waitResultConsumedBeforeRelease;
 
+	/** Resource profiles of slots that can be acquired. */
+	private final HashSet<ResourceProfile> availableSlotResourceProfiles = new HashSet<>();
+
 	public SlotManager(
 			ScheduledExecutor scheduledExecutor,
 			Time taskManagerRequestTimeout,
@@ -150,6 +155,8 @@ public class SlotManager implements AutoCloseable {
 		slotRequestTimeoutCheck = null;
 
 		started = false;
+
+		availableSlotResourceProfiles.add(ResourceProfile.ANY);
 	}
 
 	public int getNumberRegisteredSlots() {
@@ -289,6 +296,12 @@ public class SlotManager implements AutoCloseable {
 
 			return false;
 		} else {
+
+			if (!isResourceProfileAllowed(slotRequest.getResourceProfile())) {
+				throw new SlotManagerException("Could not fulfill slot request " + slotRequest.getAllocationId() + ". "
+					+ "Requested resource (" + slotRequest.getResourceProfile() + ") exceeds capacity of all slots. ");
+			}
+
 			PendingSlotRequest pendingSlotRequest = new PendingSlotRequest(slotRequest);
 
 			pendingSlotRequests.put(slotRequest.getAllocationId(), pendingSlotRequest);
@@ -459,6 +472,43 @@ public class SlotManager implements AutoCloseable {
 			}
 		} else {
 			LOG.debug("Trying to free a slot {} which has not been registered. Ignoring this message.", slotId);
+		}
+	}
+
+	public void setAvailableSlotResourceProfiles(Collection<ResourceProfile> newResourceProfiles) {
+		if (newResourceProfiles == null || newResourceProfiles.isEmpty()) {
+			newResourceProfiles = Collections.singletonList(ResourceProfile.ANY);
+		}
+
+		LOG.debug("Updating available slot resource profiles: {} -> {}.", availableSlotResourceProfiles, newResourceProfiles);
+
+		this.availableSlotResourceProfiles.clear();
+		this.availableSlotResourceProfiles.addAll(newResourceProfiles);
+
+		if (!pendingSlotRequests.isEmpty()) {
+			Iterator<Map.Entry<AllocationID, PendingSlotRequest>> slotRequestIterator = pendingSlotRequests.entrySet().iterator();
+
+			while (slotRequestIterator.hasNext()) {
+				PendingSlotRequest slotRequest = slotRequestIterator.next().getValue();
+
+				if (!isResourceProfileAllowed(slotRequest.getResourceProfile())) {
+					LOG.debug("Failing pending slot request {}: requested resource {} can not be satisfied with updated available slot resource profiles.",
+						slotRequest.getAllocationId(), slotRequest.getResourceProfile());
+
+					slotRequestIterator.remove();
+
+					if (slotRequest.isAssigned()) {
+						cancelPendingSlotRequest(slotRequest);
+					}
+
+					resourceActions.notifyAllocationFailure(
+						slotRequest.getJobId(),
+						slotRequest.getAllocationId(),
+						new SlotManagerException("Could not fulfill slot request " + slotRequest.getAllocationId() + ". "
+							+ "Requested resource (" + slotRequest.getResourceProfile() + ") exceeds capacity of all slots. ")
+					);
+				}
+			}
 		}
 	}
 
@@ -1086,6 +1136,15 @@ public class SlotManager implements AutoCloseable {
 
 	private void checkInit() {
 		Preconditions.checkState(started, "The slot manager has not been started.");
+	}
+
+	private boolean isResourceProfileAllowed(ResourceProfile requested) {
+		for (ResourceProfile availableResourceProfile : availableSlotResourceProfiles) {
+			if (availableResourceProfile.isMatching(requested)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	// ---------------------------------------------------------------------------------------------

@@ -189,6 +189,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 		// set the exact managed memory size into configuration, to make sure TMs will derive the same size
 		final int managedMemoryPerWorkerMB = this.slotsPerWorker.iterator().next().getManagedMemoryInMB() * slotsPerWorker.size();
 		this.flinkConfig.setString(TaskManagerOptions.MANAGED_MEMORY_SIZE, managedMemoryPerWorkerMB + "m");
+		setAvailableSlotResourceProfiles(slotsPerWorker);
 	}
 
 	protected AMRMClientAsync<AMRMClient.ContainerRequest> createAndStartResourceManagerClient(
@@ -314,9 +315,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 
 	@Override
 	public Collection<ResourceProfile> startNewWorker(ResourceProfile resourceProfile) {
-		Preconditions.checkArgument(
-			ResourceProfile.UNKNOWN.equals(resourceProfile),
-			"The YarnResourceManager does not support custom ResourceProfiles yet. It assumes that all containers have the same resources.");
+		// starts new TM with default resource profile
 		requestYarnContainer();
 
 		return slotsPerWorker;

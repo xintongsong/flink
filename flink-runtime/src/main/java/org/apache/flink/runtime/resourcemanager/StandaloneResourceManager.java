@@ -18,23 +18,33 @@
 
 package org.apache.flink.runtime.resourcemanager;
 
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
+import org.apache.flink.runtime.instance.InstanceID;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.metrics.MetricRegistry;
 import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.runtime.taskexecutor.SlotReport;
+import org.apache.flink.runtime.taskexecutor.SlotStatus;
+import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A standalone implementation of the resource manager. Used when the system is started in
@@ -43,6 +53,9 @@ import java.util.Collections;
  * <p>This ResourceManager doesn't acquire new resources.
  */
 public class StandaloneResourceManager extends ResourceManager<ResourceID> {
+
+	private final HashSet<ResourceProfile> registeredSlotResourceProfiles = new HashSet<>();
+	private final Time clusterInitTime;
 
 	public StandaloneResourceManager(
 			RpcService rpcService,
@@ -55,7 +68,8 @@ public class StandaloneResourceManager extends ResourceManager<ResourceID> {
 			JobLeaderIdService jobLeaderIdService,
 			ClusterInformation clusterInformation,
 			FatalErrorHandler fatalErrorHandler,
-			JobManagerMetricGroup jobManagerMetricGroup) {
+			JobManagerMetricGroup jobManagerMetricGroup,
+			Time clusterInitTime) {
 		super(
 			rpcService,
 			resourceManagerEndpointId,
@@ -68,11 +82,17 @@ public class StandaloneResourceManager extends ResourceManager<ResourceID> {
 			clusterInformation,
 			fatalErrorHandler,
 			jobManagerMetricGroup);
+		this.clusterInitTime = Preconditions.checkNotNull(clusterInitTime);
 	}
 
 	@Override
 	protected void initialize() throws ResourceManagerException {
-		// nothing to initialize
+		getRpcService().getScheduledExecutor().schedule(
+			() -> getMainThreadExecutor().execute(
+				() -> setAvailableSlotResourceProfiles(registeredSlotResourceProfiles)),
+			clusterInitTime.toMilliseconds(),
+			TimeUnit.MILLISECONDS
+		);
 	}
 
 	@Override
@@ -95,4 +115,12 @@ public class StandaloneResourceManager extends ResourceManager<ResourceID> {
 		return resourceID;
 	}
 
+	@Override
+	public CompletableFuture<Acknowledge> sendSlotReport(ResourceID taskManagerResourceId, InstanceID taskManagerRegistrationId, SlotReport slotReport, Time timeout) {
+		Iterator<SlotStatus> iterator = slotReport.iterator();
+		while (iterator.hasNext()) {
+			registeredSlotResourceProfiles.add(iterator.next().getResourceProfile());
+		}
+		return super.sendSlotReport(taskManagerResourceId, taskManagerRegistrationId, slotReport, timeout);
+	}
 }

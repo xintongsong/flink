@@ -1064,6 +1064,14 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	 */
 	public abstract boolean stopWorker(WorkerType worker);
 
+	/**
+	 * Set/Update available resource profiles.
+	 * @param availableSlotResourceProfiles
+	 */
+	protected void setAvailableSlotResourceProfiles(Collection<ResourceProfile> availableSlotResourceProfiles) {
+		slotManager.setAvailableSlotResourceProfiles(availableSlotResourceProfiles);
+	}
+
 	// ------------------------------------------------------------------------
 	//  Static utility classes
 	// ------------------------------------------------------------------------

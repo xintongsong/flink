@@ -204,6 +204,7 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 		// set the exact managed memory size into configuration, to make sure TMs will derive the same size
 		final int managedMemoryPerWorkerMB = this.slotsPerWorker.iterator().next().getManagedMemoryInMB() * slotsPerWorker.size();
 		this.flinkConfig.setString(TaskManagerOptions.MANAGED_MEMORY_SIZE, managedMemoryPerWorkerMB + "m");
+		setAvailableSlotResourceProfiles(slotsPerWorker);
 	}
 
 	protected ActorRef createSelfActor() {

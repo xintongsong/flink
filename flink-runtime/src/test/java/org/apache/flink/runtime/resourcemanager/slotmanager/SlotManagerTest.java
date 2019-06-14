@@ -59,6 +59,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -1571,6 +1572,53 @@ public class SlotManagerTest extends TestLogger {
 			assertThat(slotManager.getNumberRegisteredSlots(), is(1));
 			assertThat(slotManager.getNumberPendingTaskManagerSlots(), is(numberSlots));
 			assertThat(slotManager.getNumberAssignedPendingTaskManagerSlots(), is(1));
+		}
+	}
+
+	/**
+	 * Tests that check and fail resource requests that exceeds available resource profiles.
+	 */
+	@Test
+	public void testCheckSlotRequestResourceProfile() throws Exception {
+		final JobID jobId = new JobID();
+		ResourceProfile resourceProfile1 = new ResourceProfile(2.0, 100);
+		ResourceProfile resourceProfile2 = new ResourceProfile(1.0, 200);
+
+		CompletableFuture<Tuple3<JobID, AllocationID, Exception>> notifyAllocationFailureFuture = new CompletableFuture<>();
+		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
+		final ResourceActions resourceManagerActions = new TestingResourceActionsBuilder()
+			.setNotifyAllocationFailureConsumer(tuple3 -> notifyAllocationFailureFuture.complete(tuple3)).build();
+		Exception exception = null;
+
+		try (final SlotManager slotManager = createSlotManager(resourceManagerId, resourceManagerActions)) {
+
+			// Initially, both requests should be allowed
+			SlotRequest slotRequest1 = createSlotRequest(jobId, new ResourceProfile(1.0, 100));
+			SlotRequest slotRequest2 = createSlotRequest(jobId, new ResourceProfile(2.0, 200));
+			assertTrue(slotManager.registerSlotRequest(slotRequest1));
+			assertTrue(slotManager.registerSlotRequest(slotRequest2));
+
+			// Set available slot resource profiles, should fail pending request 1
+			slotManager.setAvailableSlotResourceProfiles(Arrays.asList(resourceProfile1, resourceProfile2));
+			assertEquals(slotRequest2.getAllocationId(), notifyAllocationFailureFuture.get().f1);
+
+			// request 3 should be allowed, request 4 should fail
+			SlotRequest slotRequest3 = createSlotRequest(jobId, new ResourceProfile(1.0, 100));
+			SlotRequest slotRequest4 = createSlotRequest(jobId, new ResourceProfile(2.0, 200));
+			assertTrue(slotManager.registerSlotRequest(slotRequest3));
+			try {
+				slotManager.registerSlotRequest(slotRequest4);
+			} catch (SlotManagerException e) {
+				exception = e;
+			}
+			assertNotNull(exception);
+
+			// Reset available slot resource profiles, both requests should be allowed
+			slotManager.setAvailableSlotResourceProfiles(Collections.emptyList());
+			SlotRequest slotRequest5 = createSlotRequest(jobId, new ResourceProfile(1.0, 100));
+			SlotRequest slotRequest6 = createSlotRequest(jobId, new ResourceProfile(2.0, 200));
+			assertTrue(slotManager.registerSlotRequest(slotRequest5));
+			assertTrue(slotManager.registerSlotRequest(slotRequest6));
 		}
 	}
 

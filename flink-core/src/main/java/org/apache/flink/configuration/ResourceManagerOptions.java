@@ -86,6 +86,20 @@ public class ResourceManagerOptions {
 		.withDescription("The timeout for a slot request to be discarded.");
 
 	/**
+	 * Time in milliseconds for the slot resources to register in standalone cluster.
+	 * Used by the resource manager in standalone mode to decide in how long time the task executors should register.
+	 * After this time, slot requests that exceed capacity of all registered slots will be considered not satisfiable
+	 * and failed. If not configured, {@link JobManagerOptions#SLOT_REQUEST_TIMEOUT} will be used by default.
+	 */
+	public static final ConfigOption<Long> STANDALONE_SLOT_RESOURCES_REGISTRATION_TIMEOUT = ConfigOptions
+		.key("resourcemanager.standalone.slot-resources-registration-timeout")
+		.defaultValue(-1L)
+		.withDescription("Time in milliseconds for the slot resources to register in standalone cluster. This is used by "
+			+ "the resource manager in standalone mode to decide in how long time the task executors should register. "
+			+ "After this time, slot requests that exceed capacity of all registered slots will be considered not "
+			+ "satisfiable and failed. If not configured, slot request timeout will be used by default.");
+
+	/**
 	 * The timeout for an idle task manager to be released, in milliseconds.
 	 * @deprecated Use {@link #TASK_MANAGER_TIMEOUT}.
 	 */
