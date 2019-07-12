@@ -623,8 +623,11 @@ public class SlotManager implements AutoCloseable {
 
 	@Nullable
 	private PendingTaskManagerSlot findExactlyMatchingPendingTaskManagerSlot(ResourceProfile resourceProfile) {
+		LOG.info("Looking for exactly matching pending slot for resource profile {}.", resourceProfile);
 		for (PendingTaskManagerSlot pendingTaskManagerSlot : pendingSlots.values()) {
+			LOG.info("Pending task manager slot with id {}, resource profile {}.", pendingTaskManagerSlot.getTaskManagerSlotId(), pendingTaskManagerSlot.getResourceProfile());
 			if (pendingTaskManagerSlot.getResourceProfile().equals(resourceProfile)) {
+				LOG.info("Find matching pending task manager slot {}.", pendingTaskManagerSlot.getTaskManagerSlotId());
 				return pendingTaskManagerSlot;
 			}
 		}
