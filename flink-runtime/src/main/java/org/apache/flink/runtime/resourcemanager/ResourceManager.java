@@ -70,6 +70,8 @@ import org.apache.flink.runtime.taskexecutor.TaskExecutorRegistrationSuccess;
 import org.apache.flink.runtime.taskexecutor.TaskManagerServices;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -1207,10 +1209,12 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	public static Collection<ResourceProfile> updateTaskManagerConfigAndCreateWorkerSlotProfiles(
 			Configuration config, long totalMemoryMB, int numSlots) {
 
+		final Logger log = LoggerFactory.getLogger(ResourceManager.class);
+
 		final long cutoffMB = ContaineredTaskManagerParameters.calculateCutoffMB(config, totalMemoryMB);
 		final long processMemoryBytes = (totalMemoryMB - cutoffMB) << 20; // megabytes to bytes
 		final long managedMemoryBytes = TaskManagerServices.getManagedMemoryFromProcessMemory(config, processMemoryBytes);
-
+		log.info("managedMemoryBytes = {}.", managedMemoryBytes);
 		updateFlinkConfForManagedMemory(config, managedMemoryBytes);
 
 		final ResourceProfile resourceProfile = TaskManagerServices.computeSlotResourceProfile(numSlots, managedMemoryBytes);

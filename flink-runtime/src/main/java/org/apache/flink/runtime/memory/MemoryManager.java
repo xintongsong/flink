@@ -141,6 +141,7 @@ public class MemoryManager {
 
 		this.memoryType = memoryType;
 		this.memorySize = memorySize;
+		LOG.info("memorySize = {}.", memorySize);
 		this.numberOfSlots = numberOfSlots;
 
 		// assign page size and bit utilities

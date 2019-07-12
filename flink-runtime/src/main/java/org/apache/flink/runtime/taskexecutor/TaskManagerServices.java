@@ -258,6 +258,7 @@ public class TaskManagerServices {
 		// this call has to happen strictly after the network stack has been initialized
 		final MemoryManager memoryManager = createMemoryManager(taskManagerServicesConfiguration);
 		final long managedMemorySize = memoryManager.getMemorySize();
+		LOG.info("managedMemorySize = {}.", managedMemorySize);
 
 		final BroadcastVariableManager broadcastVariableManager = new BroadcastVariableManager();
 
@@ -349,6 +350,7 @@ public class TaskManagerServices {
 				LOG.info("Limiting managed memory to {} MB, memory will be allocated lazily." , configuredMemory);
 			}
 			memorySize = configuredMemory << 20; // megabytes to bytes
+			LOG.info("ConfiguredMemorySize (megabytes to bytes) = {}.", memorySize);
 		} else {
 			// similar to #calculateNetworkBufferMemory(TaskManagerServicesConfiguration tmConfig)
 			float memoryFraction = taskManagerServicesConfiguration.getMemoryFraction();
@@ -527,6 +529,7 @@ public class TaskManagerServices {
 
 	public static ResourceProfile computeSlotResourceProfile(int numOfSlots, long managedMemorySize) {
 		int managedMemoryPerSlotMB = (int) bytesToMegabytes(managedMemorySize / numOfSlots);
+		LOG.info("computeSlotResourceProfile managedMemoryPerSlotMB = {}.", managedMemoryPerSlotMB);
 		return new ResourceProfile(
 			Double.MAX_VALUE,
 			Integer.MAX_VALUE,
