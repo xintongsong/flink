@@ -301,7 +301,7 @@ public class SlotManager implements AutoCloseable {
 		checkInit();
 
 		if (checkDuplicateRequest(slotRequest.getAllocationId())) {
-			LOG.debug("Ignoring a duplicate slot request with allocation id {}.", slotRequest.getAllocationId());
+			LOG.info("Ignoring a duplicate slot request with allocation id {}.", slotRequest.getAllocationId());
 
 			return false;
 		} else {
@@ -750,12 +750,24 @@ public class SlotManager implements AutoCloseable {
 		TaskManagerSlot taskManagerSlot = findMatchingSlot(resourceProfile);
 
 		if (taskManagerSlot != null) {
+			LOG.info("Find matching slot {}.", taskManagerSlot.getSlotId());
 			allocateSlot(taskManagerSlot, pendingSlotRequest);
 		} else {
+			LOG.info("Find no matching slot.");
 			Optional<PendingTaskManagerSlot> pendingTaskManagerSlotOptional = findFreeMatchingPendingTaskManagerSlot(resourceProfile);
+			if (pendingTaskManagerSlotOptional.isPresent()) {
+				LOG.info("Find free matching pending task manager slot {}.", pendingTaskManagerSlotOptional.get().getTaskManagerSlotId());
+			} else {
+				LOG.info("Find no free matching pending task manager slot.");
+			}
 
 			if (!pendingTaskManagerSlotOptional.isPresent()) {
 				pendingTaskManagerSlotOptional = allocateResource(resourceProfile);
+				if (pendingTaskManagerSlotOptional.isPresent()) {
+					LOG.info("Allocated pending task manager slot {}.", pendingTaskManagerSlotOptional.get().getTaskManagerSlotId());
+				} else {
+					LOG.info("Cannot allocate pending task manager slot.");
+				}
 			}
 
 			if (pendingTaskManagerSlotOptional.isPresent()) {
@@ -811,6 +823,7 @@ public class SlotManager implements AutoCloseable {
 	}
 
 	private void assignPendingTaskManagerSlot(PendingSlotRequest pendingSlotRequest, PendingTaskManagerSlot pendingTaskManagerSlot) {
+		LOG.info("Assign pending task manager slot {} to request {}.", pendingTaskManagerSlot.getTaskManagerSlotId(), pendingSlotRequest.getAllocationId());
 		pendingTaskManagerSlot.assignPendingSlotRequest(pendingSlotRequest);
 		pendingSlotRequest.assignPendingTaskManagerSlot(pendingTaskManagerSlot);
 	}
@@ -823,6 +836,7 @@ public class SlotManager implements AutoCloseable {
 	 * @param pendingSlotRequest to allocate the given slot for
 	 */
 	private void allocateSlot(TaskManagerSlot taskManagerSlot, PendingSlotRequest pendingSlotRequest) {
+		LOG.info("Allocating slot {} to request {}.", taskManagerSlot.getSlotId(), pendingSlotRequest.getAllocationId());
 		Preconditions.checkState(taskManagerSlot.getState() == TaskManagerSlot.State.FREE);
 
 		TaskExecutorConnection taskExecutorConnection = taskManagerSlot.getTaskManagerConnection();
