@@ -29,20 +29,7 @@ STAGE_MISC="misc"
 STAGE_CLEANUP="cleanup"
 
 MODULES_CORE="\
-flink-annotations,\
-flink-test-utils-parent/flink-test-utils,\
-flink-state-backends/flink-statebackend-rocksdb,\
-flink-clients,\
-flink-core,\
-flink-java,\
-flink-optimizer,\
-flink-runtime,\
-flink-runtime-web,\
-flink-scala,\
-flink-streaming-java,\
-flink-streaming-scala,\
-flink-metrics,\
-flink-metrics/flink-metrics-core"
+flink-runtime"
 
 MODULES_LIBRARIES="\
 flink-libraries/flink-cep,\
@@ -196,7 +183,7 @@ function get_test_modules_for_stage() {
 
     case ${stage} in
         (${STAGE_CORE})
-            echo "-pl $modules_core"
+            echo "-pl $modules_core -Dtest=org.apache.flink.runtime.resourcemanager.StandaloneResourceManagerTest -DfailIfNoTests=false"
         ;;
         (${STAGE_LIBRARIES})
             echo "-pl $modules_libraries"
