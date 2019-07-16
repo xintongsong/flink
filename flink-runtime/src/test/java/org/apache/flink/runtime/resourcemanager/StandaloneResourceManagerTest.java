@@ -28,6 +28,7 @@ import org.apache.flink.runtime.rpc.TestingRpcServiceResource;
 import org.apache.flink.runtime.util.TestingFatalErrorHandler;
 
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.function.SupplierWithException;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -43,7 +44,7 @@ import static org.junit.Assert.fail;
 /**
  * Tests for the Standalone Resource Manager.
  */
-public class StandaloneResourceManagerTest {
+public class StandaloneResourceManagerTest extends TestLogger {
 
 	@ClassRule
 	public static final TestingRpcServiceResource RPC_SERVICE = new TestingRpcServiceResource();
