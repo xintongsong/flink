@@ -26,13 +26,16 @@ import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.resourcemanager.utils.MockResourceManagerRuntimeServices;
 import org.apache.flink.runtime.rpc.TestingRpcServiceResource;
 import org.apache.flink.runtime.util.TestingFatalErrorHandler;
-
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.function.SupplierWithException;
+
 import org.junit.ClassRule;
 import org.junit.Test;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -55,12 +58,16 @@ public class StandaloneResourceManagerTest extends TestLogger {
 
 	@Test
 	public void testStartupPeriod() throws Exception {
-		final StandaloneResourceManager rm = createResourceManager(Time.milliseconds(1L));
-		final Deadline deadline = Deadline.fromNow(Duration.ofSeconds(10L));
+		int counter = 0;
+		while (true) {
+			log.info("========= Test {} ==============================", counter++);
+			final StandaloneResourceManager rm = createResourceManager(Time.milliseconds(1L));
+			final Deadline deadline = Deadline.fromNow(Duration.ofSeconds(10L));
 
-		assertHappensUntil(() -> isFailingUnfulfillableRequest(rm), deadline);
+			assertHappensUntil(() -> isFailingUnfulfillableRequest(rm), deadline);
 
-		rm.close();
+			rm.close();
+		}
 	}
 
 	@Test
@@ -113,11 +120,15 @@ public class StandaloneResourceManagerTest extends TestLogger {
 		}
 	}
 
-	private static void assertHappensUntil(
+	private void assertHappensUntil(
 			SupplierWithException<Boolean, InterruptedException> condition,
 			Deadline until) throws InterruptedException {
 		while (!condition.get()) {
 			if (!until.hasTimeLeft()) {
+				ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
+				for (ThreadInfo ti : threadMxBean.dumpAllThreads(true, true)) {
+					log.error(ti.toString());
+				}
 				fail("condition was not fulfilled before the deadline");
 			}
 			Thread.sleep(2);
