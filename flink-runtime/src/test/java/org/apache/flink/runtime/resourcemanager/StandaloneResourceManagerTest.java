@@ -33,6 +33,11 @@ import org.apache.flink.util.function.SupplierWithException;
 import org.junit.ClassRule;
 import org.junit.Test;
 
+import java.lang.management.LockInfo;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MonitorInfo;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -113,11 +118,74 @@ public class StandaloneResourceManagerTest extends TestLogger {
 		}
 	}
 
-	private static void assertHappensUntil(
+	private void assertHappensUntil(
 			SupplierWithException<Boolean, InterruptedException> condition,
 			Deadline until) throws InterruptedException {
 		while (!condition.get()) {
 			if (!until.hasTimeLeft()) {
+				ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
+				for (ThreadInfo ti : threadMxBean.dumpAllThreads(true, true)) {
+					StringBuilder sb = new StringBuilder("\"" + ti.getThreadName() + "\"" +
+						" Id=" + ti.getThreadId() + " " +
+						ti.getThreadState());
+					if (ti.getLockName() != null) {
+						sb.append(" on " + ti.getLockName());
+					}
+					if (ti.getLockOwnerName() != null) {
+						sb.append(" owned by \"" + ti.getLockOwnerName() +
+							"\" Id=" + ti.getLockOwnerId());
+					}
+					if (ti.isSuspended()) {
+						sb.append(" (suspended)");
+					}
+					if (ti.isInNative()) {
+						sb.append(" (in native)");
+					}
+					sb.append('\n');
+					for (int i = 0; i < ti.getStackTrace().length; i++) {
+						StackTraceElement ste = ti.getStackTrace()[i];
+						sb.append("\tat " + ste.toString());
+						sb.append('\n');
+						if (i == 0 && ti.getLockInfo() != null) {
+							Thread.State ts = ti.getThreadState();
+							switch (ts) {
+								case BLOCKED:
+									sb.append("\t-  blocked on " + ti.getLockInfo());
+									sb.append('\n');
+									break;
+								case WAITING:
+									sb.append("\t-  waiting on " + ti.getLockInfo());
+									sb.append('\n');
+									break;
+								case TIMED_WAITING:
+									sb.append("\t-  waiting on " + ti.getLockInfo());
+									sb.append('\n');
+									break;
+								default:
+							}
+						}
+
+						for (MonitorInfo mi : ti.getLockedMonitors()) {
+							if (mi.getLockedStackDepth() == i) {
+								sb.append("\t-  locked " + mi);
+								sb.append('\n');
+							}
+						}
+					}
+
+					LockInfo[] locks = ti.getLockedSynchronizers();
+					if (locks.length > 0) {
+						sb.append("\n\tNumber of locked synchronizers = " + locks.length);
+						sb.append('\n');
+						for (LockInfo li : locks) {
+							sb.append("\t- " + li);
+							sb.append('\n');
+						}
+					}
+					sb.append('\n');
+
+					log.error("\n" + sb.toString());
+				}
 				fail("condition was not fulfilled before the deadline");
 			}
 			Thread.sleep(2);
