@@ -197,7 +197,9 @@ public class SlotManager implements AutoCloseable {
 	}
 
 	public boolean isFailingUnfulfillableRequest() {
-		return failUnfulfillableRequest;
+		boolean ret = failUnfulfillableRequest;
+		LOG.info("Invoking isFailingUnfulfillableRequest, returning {}.", ret);
+		return ret;
 	}
 
 	@VisibleForTesting
@@ -479,6 +481,7 @@ public class SlotManager implements AutoCloseable {
 	}
 
 	public void setFailUnfulfillableRequest(boolean failUnfulfillableRequest) {
+		LOG.info("Setting fail unfulfillable request");
 		if (!this.failUnfulfillableRequest && failUnfulfillableRequest) {
 			// fail unfulfillable pending requests
 			Iterator<Map.Entry<AllocationID, PendingSlotRequest>> slotRequestIterator = pendingSlotRequests.entrySet().iterator();
@@ -499,6 +502,7 @@ public class SlotManager implements AutoCloseable {
 			}
 		}
 		this.failUnfulfillableRequest = failUnfulfillableRequest;
+		LOG.info("Finish setting fail unfulfillable request");
 	}
 
 	// ---------------------------------------------------------------------------------------------

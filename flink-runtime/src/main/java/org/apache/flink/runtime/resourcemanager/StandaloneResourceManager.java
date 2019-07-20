@@ -23,6 +23,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
+import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
@@ -39,6 +40,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -82,15 +84,26 @@ public class StandaloneResourceManager extends ResourceManager<ResourceID> {
 
 	@Override
 	protected void initialize() throws ResourceManagerException {
+		log.info("Start initializing");
 		final long startupPeriodMillis = startupPeriodTime.toMilliseconds();
 
 		if (startupPeriodMillis > 0) {
-			getRpcService().getScheduledExecutor().schedule(
-				() -> getMainThreadExecutor().execute(
-					() -> setFailUnfulfillableRequest(true)),
+			log.info("Scheduling setFailUnfulfillableRequest in {} ms.", startupPeriodMillis);
+			ScheduledExecutor scheduledExecutor = getRpcService().getScheduledExecutor();
+			ScheduledFuture scheduledFuture = scheduledExecutor.schedule(
+				() -> {
+					log.info("Executing scheduled task.");
+					MainThreadExecutor mainThreadExecutor = getMainThreadExecutor();
+					log.info("MainThreadExecutor: {}.", mainThreadExecutor);
+					mainThreadExecutor.execute(() -> {
+						log.info("Executing setFailUnfulfillableRequest.");
+						setFailUnfulfillableRequest(true);
+					});
+				},
 				startupPeriodMillis,
 				TimeUnit.MILLISECONDS
 			);
+			log.info("ScheduledFuture: {}.", scheduledFuture);
 		}
 	}
 

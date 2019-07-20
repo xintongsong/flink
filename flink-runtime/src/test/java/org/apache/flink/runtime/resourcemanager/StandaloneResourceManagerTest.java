@@ -121,7 +121,9 @@ public class StandaloneResourceManagerTest extends TestLogger {
 	private void assertHappensUntil(
 			SupplierWithException<Boolean, InterruptedException> condition,
 			Deadline until) throws InterruptedException {
+		int ask = 0;
 		while (!condition.get()) {
+			log.info("Assert not happen in {} asks.", ask++);
 			if (!until.hasTimeLeft()) {
 				ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
 				for (ThreadInfo ti : threadMxBean.dumpAllThreads(true, true)) {
