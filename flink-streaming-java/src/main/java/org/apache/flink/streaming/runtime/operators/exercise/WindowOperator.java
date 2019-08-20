@@ -128,19 +128,10 @@ public class WindowOperator<K, IN, OUT>
 		final Collection<TimeWindow> windows = windowAssigner.assignWindows(value, eventTimestamp, assignerContext);
 
 		for (TimeWindow window : windows) {
-			windowState.setCurrentNamespace(window);
+			setKeyAndNamespace(key, window);
 			windowState.add(value);
-			triggerContext.set(key, window);
 			final TriggerResult result = trigger.onElement(value, eventTimestamp, window, triggerContext);
-
-			if (result.isFire()) {
-				triggerWindow(key, window);
-			}
-			if (result.isPurge()) {
-				windowState.setCurrentNamespace(window);
-				windowState.clear();
-				trigger.clear(window, triggerContext);
-			}
+			processTriggerResult(key, window, result);
 		}
 	}
 
@@ -148,41 +139,37 @@ public class WindowOperator<K, IN, OUT>
 	public void onEventTime(InternalTimer<K, TimeWindow> timer) throws Exception {
 		final K key = timer.getKey();
 		final TimeWindow window = timer.getNamespace();
-		triggerContext.set(key, window);
+		setKeyAndNamespace(key, window);
 		final TriggerResult result = trigger.onEventTime(timer.getTimestamp(), window, triggerContext);
-
-		if (result.isFire()) {
-			triggerWindow(key, window);
-		}
-		if (result.isPurge()) {
-			setStreamOperatorCurrentKey(key);
-			windowState.setCurrentNamespace(window);
-			windowState.clear();
-			trigger.clear(window, triggerContext);
-		}
+		processTriggerResult(key, window, result);
 	}
 
 	@Override
 	public void onProcessingTime(InternalTimer<K, TimeWindow> timer) throws Exception {
 		K key = timer.getKey();
 		TimeWindow window = timer.getNamespace();
-		triggerContext.set(key, window);
+		setKeyAndNamespace(key, window);
 		final TriggerResult result = trigger.onProcessingTime(timer.getTimestamp(), window, triggerContext);
+		processTriggerResult(key, window, result);
+	}
 
+	private void setKeyAndNamespace(K key, TimeWindow window) {
+		setStreamOperatorCurrentKey(key);
+		triggerContext.set(key, window);
+		windowState.setCurrentNamespace(window);
+	}
+
+	private void processTriggerResult(K key, TimeWindow window, TriggerResult result) throws Exception {
 		if (result.isFire()) {
 			triggerWindow(key, window);
 		}
 		if (result.isPurge()) {
-			setStreamOperatorCurrentKey(key);
-			windowState.setCurrentNamespace(window);
-			windowState.clear();
-			trigger.clear(window, triggerContext);
+			purgeWindow(window);
 		}
 	}
 
 	private void triggerWindow(K key, TimeWindow window) throws Exception {
-		setStreamOperatorCurrentKey(key);
-		windowState.setCurrentNamespace(window);
+		setKeyAndNamespace(key, window);
 		final Iterable<IN> windowContents = windowState.get();
 		if (windowContents == null) {
 			return;
@@ -190,6 +177,11 @@ public class WindowOperator<K, IN, OUT>
 
 		final TimestampedCollector<OUT> collector = new TimestampedCollector<>(output, window.maxTimestamp());
 		userFunction.apply(key, window, windowContents, collector);
+	}
+
+	private void purgeWindow(TimeWindow window) throws Exception {
+		windowState.clear();
+		trigger.clear(window, triggerContext);
 	}
 
 	// ------------------------------------------------------------------------
