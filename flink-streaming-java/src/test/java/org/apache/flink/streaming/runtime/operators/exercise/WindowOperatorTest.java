@@ -29,40 +29,163 @@ import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.state.internal.InternalListState;
 import org.apache.flink.streaming.api.functions.windowing.WindowFunction;
 import org.apache.flink.streaming.api.operators.TestKeyedInternalTimerService;
+import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
+import org.apache.flink.streaming.runtime.operators.exercise.assigners.SlidingEventTimeWindows;
+import org.apache.flink.streaming.runtime.operators.exercise.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.runtime.operators.exercise.assigners.WindowAssigner;
+import org.apache.flink.streaming.runtime.operators.exercise.triggers.EventTimeTrigger;
 import org.apache.flink.streaming.runtime.operators.exercise.triggers.Trigger;
+import org.apache.flink.streaming.runtime.operators.exercise.triggers.TriggerResult;
+import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertThat;
 
 /**
  * Tests for the {@link WindowOperator}.
  */
 public class WindowOperatorTest {
 
+	private static final int WINDOW_SIZE_MS = 10;
+	private static final int WINDOW_SLIDE_MS = 5;
+	private static final String KEY = "testing_key";
+
 	@Test
 	public void testEmittedDataHasEndOfWindowTimestamp() throws Exception {
+		WindowAssigner<Object> windowAssigner = TumblingEventTimeWindows.of(Time.of(WINDOW_SIZE_MS, TimeUnit.MILLISECONDS));
+		Trigger<Object> trigger = new EventTimeTrigger();
+		List<Iterable<Object>> emittedData = new ArrayList<>();
 
+		TestWindowOperator<String, Object> windowOperator =
+			createWindowOperator(windowAssigner, trigger, tuple3 -> emittedData.add(tuple3.f2));
+
+		List<StreamRecord<Object>> dataToProcess = IntStream.range(0, WINDOW_SIZE_MS + 1)
+			.boxed()
+			.map(t -> new StreamRecord<Object>(t, t))
+			.collect(Collectors.toList());
+		List<Object> expectedData = IntStream.range(0, WINDOW_SIZE_MS)
+			.boxed()
+			.collect(Collectors.toList());
+
+		windowOperator.open();
+
+		windowOperator.setStreamOperatorCurrentKey(KEY);
+		for (StreamRecord<Object> record : dataToProcess) {
+			windowOperator.processElement(record);
+		}
+
+		windowOperator.getKeyedInternalTimerService().advanceWatermark(WINDOW_SIZE_MS);
+
+		assertThat(emittedData.size(), is(1));
+		assertThat(emittedData.get(0), is(expectedData));
 	}
 
 	@Test
 	public void testAssignersToMultipleWindows() throws Exception {
+		WindowAssigner<Object> windowAssigner = SlidingEventTimeWindows.of(
+			Time.of(WINDOW_SIZE_MS, TimeUnit.MILLISECONDS), Time.of(WINDOW_SLIDE_MS, TimeUnit.MILLISECONDS));
+		Trigger<Object> trigger = new EventTimeTrigger();
+		List<Iterable<Object>> emittedData = new ArrayList<>();
 
+		TestWindowOperator<String, Object> windowOperator =
+			createWindowOperator(windowAssigner, trigger, tuple3 -> emittedData.add(tuple3.f2));
+
+		List<StreamRecord<Object>> dataToProcess = IntStream.range(0, WINDOW_SIZE_MS + WINDOW_SLIDE_MS + 1)
+			.boxed()
+			.map(t -> new StreamRecord<Object>(t, t))
+			.collect(Collectors.toList());
+		List<Object> expectedData1 = IntStream.range(0, WINDOW_SLIDE_MS)
+			.boxed()
+			.collect(Collectors.toList());
+		List<Object> expectedData2 = IntStream.range(0, WINDOW_SIZE_MS)
+			.boxed()
+			.collect(Collectors.toList());
+		List<Object> expectedData3 = IntStream.range(WINDOW_SLIDE_MS, WINDOW_SIZE_MS + WINDOW_SLIDE_MS)
+			.boxed()
+			.collect(Collectors.toList());
+
+		windowOperator.open();
+
+		windowOperator.setStreamOperatorCurrentKey(KEY);
+		for (StreamRecord<Object> record : dataToProcess) {
+			windowOperator.processElement(record);
+		}
+
+		windowOperator.getKeyedInternalTimerService().advanceWatermark(WINDOW_SIZE_MS + WINDOW_SLIDE_MS);
+
+		assertThat(emittedData.size(), is(3));
+		assertThat(emittedData.get(0), is(expectedData1));
+		assertThat(emittedData.get(1), is(expectedData2));
+		assertThat(emittedData.get(2), is(expectedData3));
 	}
 
 	@Test
 	public void testAssignersToZeroWindows() throws Exception {
+		WindowAssigner<Object> windowAssigner = (WindowAssigner<Object>) (element, timestamp, context) -> Collections.emptyList();
+		Trigger<Object> trigger = new EventTimeTrigger();
+		List<Iterable<Object>> emittedData = new ArrayList<>();
+
+		TestWindowOperator<String, Object> windowOperator =
+			createWindowOperator(windowAssigner, trigger, tuple3 -> emittedData.add(tuple3.f2));
+
+		List<StreamRecord<Object>> dataToProcess = IntStream.range(0, WINDOW_SIZE_MS + 1)
+			.boxed()
+			.map(t -> new StreamRecord<Object>(t, t))
+			.collect(Collectors.toList());
+
+		windowOperator.open();
+
+		windowOperator.setStreamOperatorCurrentKey(KEY);
+		for (StreamRecord<Object> record : dataToProcess) {
+			windowOperator.processElement(record);
+		}
+
+		windowOperator.getKeyedInternalTimerService().advanceWatermark(WINDOW_SIZE_MS);
+
+		assertThat(emittedData.size(), is(0));
 	}
 
 	@Test
 	public void deleteTimerWhenWindowPurged() throws Exception {
+		WindowAssigner<Object> windowAssigner = TumblingEventTimeWindows.of(Time.of(WINDOW_SIZE_MS, TimeUnit.MILLISECONDS));
+		Trigger<Object> trigger = new EventTimeTrigger() {
+			@Override
+			public TriggerResult onEventTime(long time, TimeWindow window, TriggerContext ctx) {
+				return TriggerResult.PURGE;
+			}
+		};
+
+		TestWindowOperator<String, Object> windowOperator =
+			createWindowOperator(windowAssigner, trigger, ignore -> {});
+
+		List<StreamRecord<Object>> dataToProcess = IntStream.range(0, WINDOW_SIZE_MS)
+			.boxed()
+			.map(t -> new StreamRecord<Object>(t, t))
+			.collect(Collectors.toList());
+
+		windowOperator.open();
+
+		windowOperator.setStreamOperatorCurrentKey(KEY);
+		for (StreamRecord<Object> record : dataToProcess) {
+			windowOperator.processElement(record);
+		}
+
+		windowOperator.getKeyedInternalTimerService().advanceWatermark(WINDOW_SIZE_MS);
+		assertThat(windowOperator.getKeyedInternalTimerService().numEventTimeTimers(), is(0));
 	}
 
 	public static TestWindowOperator<String, Object> createWindowOperator(
