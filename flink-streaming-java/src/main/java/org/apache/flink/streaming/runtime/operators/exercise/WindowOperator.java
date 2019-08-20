@@ -194,7 +194,7 @@ public class WindowOperator<K, IN, OUT>
 
 	// ------------------------------------------------------------------------
 
-	private static final class TriggerContextImpl<K> implements Trigger.TriggerContext {
+	protected static final class TriggerContextImpl<K> implements Trigger.TriggerContext {
 
 		private final InternalKeyedTimerService<K, TimeWindow> timerService;
 
