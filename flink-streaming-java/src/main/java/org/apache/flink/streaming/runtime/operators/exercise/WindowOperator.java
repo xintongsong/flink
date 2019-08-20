@@ -90,20 +90,38 @@ public class WindowOperator<K, IN, OUT>
 	public void open() throws Exception {
 		super.open();
 
-		windowState = (InternalListState<K, TimeWindow, IN>) getOrCreateKeyedState(WINDOW_SERIALIZER, windowStateDescriptor);
+		final InternalListState<K, TimeWindow, IN> windowState = (InternalListState<K, TimeWindow, IN>) getOrCreateKeyedState(WINDOW_SERIALIZER, windowStateDescriptor);
 
 		final InternalTimerService<TimeWindow> ts = getInternalTimerService("window-timers", WINDOW_SERIALIZER, this);
 		final InternalKeyedTimerService<K, TimeWindow> kts = new InternalKeyedTimerServiceImpl<>(ts, this);
-
-		triggerContext = new TriggerContextImpl<>(kts);
+		final TriggerContextImpl<K> triggerContext = new TriggerContextImpl<>(kts);
 
 		final ProcessingTimeService procService = getProcessingTimeService();
-		assignerContext = procService::getCurrentProcessingTime;
+		final WindowAssigner.WindowAssignerContext assignerContext = procService::getCurrentProcessingTime;
+
+		setUpContext(windowState, triggerContext, assignerContext);
+	}
+
+	protected void setUpContext(
+		InternalListState<K, TimeWindow, IN> windowState,
+		TriggerContextImpl<K> triggerContext,
+		WindowAssigner.WindowAssignerContext assignerContext) {
+		this.windowState = windowState;
+		this.triggerContext = triggerContext;
+		this.assignerContext = assignerContext;
+	}
+
+	protected void setStreamOperatorCurrentKey(K key) {
+		setCurrentKey(key);
+	}
+
+	protected K getStreamOperatorCurrentKey() {
+		return (K) getCurrentKey();
 	}
 
 	@Override
 	public void processElement(StreamRecord<IN> element) throws Exception {
-		final K key = this.<K>getKeyedStateBackend().getCurrentKey();
+		final K key = getStreamOperatorCurrentKey();
 		final IN value = element.getValue();
 		final long eventTimestamp = element.getTimestamp();
 
@@ -137,7 +155,7 @@ public class WindowOperator<K, IN, OUT>
 			triggerWindow(key, window);
 		}
 		if (result.isPurge()) {
-			setCurrentKey(key);
+			setStreamOperatorCurrentKey(key);
 			windowState.setCurrentNamespace(window);
 			windowState.clear();
 			trigger.clear(window, triggerContext);
@@ -155,7 +173,7 @@ public class WindowOperator<K, IN, OUT>
 			triggerWindow(key, window);
 		}
 		if (result.isPurge()) {
-			setCurrentKey(key);
+			setStreamOperatorCurrentKey(key);
 			windowState.setCurrentNamespace(window);
 			windowState.clear();
 			trigger.clear(window, triggerContext);
@@ -163,7 +181,7 @@ public class WindowOperator<K, IN, OUT>
 	}
 
 	private void triggerWindow(K key, TimeWindow window) throws Exception {
-		setCurrentKey(key);
+		setStreamOperatorCurrentKey(key);
 		windowState.setCurrentNamespace(window);
 		final Iterable<IN> windowContents = windowState.get();
 		if (windowContents == null) {
