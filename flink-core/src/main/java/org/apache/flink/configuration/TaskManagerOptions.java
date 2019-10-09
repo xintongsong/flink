@@ -150,6 +150,21 @@ public class TaskManagerOptions {
 				" is typically proportional to the number of physical CPU cores that the TaskManager's machine has" +
 				" (e.g., equal to the number of cores, or half the number of cores).");
 
+	/**
+	 * Fraction of TaskExecutor resources a default slot should take for slot requests with unknown resource profiles.
+	 * We do not expose this option to the users, and only use it internally for the moment.
+	 */
+	@Documentation.ExcludeFromDocumentation
+	public static final ConfigOption<Double> DEFAULT_SLOT_FRACTION =
+		key("taskmanager.default-slot-fraction")
+			.doubleType()
+			.noDefaultValue()
+			.withDescription("For operator or user function instances that do not specify their resource requirements," +
+				" we use this fraction to decide how many resources of the task executor each slot should take. A" +
+				" default slot should have the configured fraction of the task executor resources on all resource" +
+				" dimensions (CPU, Memory). If the fraction is not explicitly configured, it will be derived as" +
+				" 1 / numberOfSlots, where numberOfSlots is configured via the legacy option '" + NUM_TASK_SLOTS.key() + "'.");
+
 	public static final ConfigOption<Boolean> DEBUG_MEMORY_LOG =
 		key("taskmanager.debug.memory.log")
 			.defaultValue(false)
