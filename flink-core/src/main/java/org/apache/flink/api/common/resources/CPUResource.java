@@ -36,7 +36,7 @@ public class CPUResource extends Resource {
 		super(NAME, value);
 	}
 
-	private CPUResource(BigDecimal value) {
+	public CPUResource(BigDecimal value) {
 		super(NAME, value);
 	}
 

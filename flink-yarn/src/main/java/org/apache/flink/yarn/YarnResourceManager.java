@@ -186,9 +186,12 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 		this.webInterfaceUrl = webInterfaceUrl;
 		this.numberOfTaskSlots = flinkConfig.getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
 
-		this.taskExecutorResourceSpec = TaskExecutorResourceUtils.resourceSpecFromConfig(flinkConfig);
+		this.defaultCpus = getCpuCores(flinkConfig);
+		this.taskExecutorResourceSpec = TaskExecutorResourceUtils
+			.newResourceSpecBuilder(flinkConfig)
+			.withCpuCores(defaultCpus)
+			.build();
 		this.defaultTaskManagerMemoryMB = taskExecutorResourceSpec.getTotalProcessMemorySize().getMebiBytes();
-		this.defaultCpus = flinkConfig.getInteger(YarnConfigOptions.VCORES, numberOfTaskSlots);
 		this.resource = Resource.newInstance(defaultTaskManagerMemoryMB, defaultCpus);
 
 		this.slotsPerWorker = createWorkerSlotProfiles(flinkConfig);
@@ -617,5 +620,16 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 		taskExecutorLaunchContext.getEnvironment()
 				.put(ENV_FLINK_NODE_ID, host);
 		return taskExecutorLaunchContext;
+	}
+
+	private int getCpuCores(final Configuration configuration) {
+		int fallback = configuration.getInteger(YarnConfigOptions.VCORES);
+		double cpuCoresDouble = TaskExecutorResourceUtils.getCpuCoresWithFallback(configuration, fallback).getValue().doubleValue();
+		int cpuCoresInt = Math.max((int) Math.round(cpuCoresDouble), 1);
+		if (cpuCoresInt != cpuCoresDouble) {
+			log.info("The amount of cpu cores must be a positive integer on Yarn. Rounding {} to the closest positive integer {}.",
+				cpuCoresDouble, cpuCoresInt);
+		}
+		return cpuCoresInt;
 	}
 }
