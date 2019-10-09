@@ -181,6 +181,7 @@ public class ConfigurationUtils {
 		checkArgument(configs.containsKey(TaskManagerOptions.SHUFFLE_MEMORY_MAX.key()));
 		checkArgument(configs.containsKey(TaskManagerOptions.SHUFFLE_MEMORY_MIN.key()));
 		checkArgument(configs.containsKey(TaskManagerOptions.MANAGED_MEMORY_SIZE.key()));
+		checkArgument(configs.containsKey(TaskManagerOptions.DEFAULT_SLOT_FRACTION.key()));
 
 		return configs;
 	}

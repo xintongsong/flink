@@ -22,6 +22,7 @@ import org.apache.flink.api.common.resources.CPUResource;
 import org.apache.flink.configuration.MemorySize;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 
 /**
  * Describe the specifics of different resource dimensions of the TaskExecutor.
@@ -93,6 +94,8 @@ public class TaskExecutorResourceSpec implements Serializable {
 
 	private final MemorySize jvmOverheadSize;
 
+	private final BigDecimal defaultSlotFraction;
+
 	public TaskExecutorResourceSpec(
 		CPUResource cpuCores,
 		MemorySize frameworkHeapSize,
@@ -102,7 +105,8 @@ public class TaskExecutorResourceSpec implements Serializable {
 		MemorySize shuffleMemSize,
 		MemorySize managedMemorySize,
 		MemorySize jvmMetaspaceSize,
-		MemorySize jvmOverheadSize) {
+		MemorySize jvmOverheadSize,
+		BigDecimal defaultSlotFraction) {
 
 		this.cpuCores = cpuCores;
 		this.frameworkHeapSize = frameworkHeapSize;
@@ -113,6 +117,7 @@ public class TaskExecutorResourceSpec implements Serializable {
 		this.managedMemorySize = managedMemorySize;
 		this.jvmMetaspaceSize = jvmMetaspaceSize;
 		this.jvmOverheadSize = jvmOverheadSize;
+		this.defaultSlotFraction = defaultSlotFraction;
 	}
 
 	public CPUResource getCpuCores() {
@@ -167,6 +172,10 @@ public class TaskExecutorResourceSpec implements Serializable {
 		return frameworkOffHeapMemorySize.add(taskOffHeapSize).add(shuffleMemSize);
 	}
 
+	public BigDecimal getDefaultSlotFraction() {
+		return defaultSlotFraction;
+	}
+
 	@Override
 	public String toString() {
 		return "TaskExecutorResourceSpec {"
@@ -179,6 +188,7 @@ public class TaskExecutorResourceSpec implements Serializable {
 			+ ", managedMemorySize=" + managedMemorySize.toString()
 			+ ", jvmMetaspaceSize=" + jvmMetaspaceSize.toString()
 			+ ", jvmOverheadSize=" + jvmOverheadSize.toString()
+			+ ", defaultSlotFraction=" + defaultSlotFraction.doubleValue()
 			+ "}";
 	}
 }

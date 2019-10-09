@@ -35,6 +35,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.net.BindException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -154,7 +155,8 @@ public class BootstrapToolsTest extends TestLogger {
 			new MemorySize(222), // shuffleMemSize
 			new MemorySize(0), // managedMemorySize
 			new MemorySize(333), // jvmMetaspaceSize
-			new MemorySize(0)); // jvmOverheadSize
+			new MemorySize(0), // jvmOverheadSize
+			BigDecimal.valueOf(0.5)); // default slot fraction
 		final ContaineredTaskManagerParameters containeredParams =
 			new ContaineredTaskManagerParameters(taskExecutorResourceSpec, new HashMap<String, String>());
 

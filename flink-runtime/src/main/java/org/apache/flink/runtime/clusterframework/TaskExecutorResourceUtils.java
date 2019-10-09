@@ -25,9 +25,12 @@ import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.util.ConfigurationParserUtils;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -73,6 +76,7 @@ public class TaskExecutorResourceUtils {
 		configs.put(TaskManagerOptions.SHUFFLE_MEMORY_MIN.key(), taskExecutorResourceSpec.getShuffleMemSize().getBytes() + "b");
 		configs.put(TaskManagerOptions.SHUFFLE_MEMORY_MAX.key(), taskExecutorResourceSpec.getShuffleMemSize().getBytes() + "b");
 		configs.put(TaskManagerOptions.MANAGED_MEMORY_SIZE.key(), taskExecutorResourceSpec.getManagedMemorySize().getBytes() + "b");
+		configs.put(TaskManagerOptions.DEFAULT_SLOT_FRACTION.key(), String.valueOf(taskExecutorResourceSpec.getDefaultSlotFraction().doubleValue()));
 		return assembleDynamicConfigsStr(configs);
 	}
 
@@ -82,6 +86,21 @@ public class TaskExecutorResourceUtils {
 			sb.append("-D ").append(entry.getKey()).append("=").append(entry.getValue()).append(" ");
 		}
 		return sb.toString();
+	}
+
+	// ------------------------------------------------------------------------
+	//  Generating Default Slot Resource Profiles
+	// ------------------------------------------------------------------------
+
+	public static ResourceProfile generateDefaultSlotResourceProfile(TaskExecutorResourceSpec taskExecutorResourceSpec) {
+		BigDecimal defaultSlotFraction = taskExecutorResourceSpec.getDefaultSlotFraction();
+		return ResourceProfile.newBuilder()
+			.setCpuCores(taskExecutorResourceSpec.getCpuCores().multiply(defaultSlotFraction))
+			.setTaskHeapMemory(taskExecutorResourceSpec.getTaskHeapSize().multiply(defaultSlotFraction))
+			.setTaskOffHeapMemory(taskExecutorResourceSpec.getTaskOffHeapSize().multiply(defaultSlotFraction))
+			.setManagedMemory(taskExecutorResourceSpec.getManagedMemorySize().multiply(defaultSlotFraction))
+			.setShuffleMemory(taskExecutorResourceSpec.getShuffleMemSize().multiply(defaultSlotFraction))
+			.build();
 	}
 
 	// ------------------------------------------------------------------------
@@ -526,7 +545,8 @@ public class TaskExecutorResourceUtils {
 			}
 			return new CPUResource(cpuCores);
 		} else {
-			return new CPUResource(config.getInteger(TaskManagerOptions.NUM_TASK_SLOTS));
+			final BigDecimal defaultSlotFraction =  getDefaultSlotFraction(config);
+			return new CPUResource(BigDecimal.valueOf(1.0).divide(defaultSlotFraction, 16, RoundingMode.DOWN));
 		}
 	}
 
@@ -541,7 +561,25 @@ public class TaskExecutorResourceUtils {
 			flinkInternalMemory.shuffle,
 			flinkInternalMemory.managed,
 			jvmMetaspaceAndOverhead.metaspace,
-			jvmMetaspaceAndOverhead.overhead);
+			jvmMetaspaceAndOverhead.overhead,
+			getDefaultSlotFraction(config));
+	}
+
+	@SuppressWarnings("deprecation")
+	private static BigDecimal getDefaultSlotFraction(final Configuration config) {
+		if (config.contains(TaskManagerOptions.DEFAULT_SLOT_FRACTION)) {
+			final double fraction = config.getDouble(TaskManagerOptions.DEFAULT_SLOT_FRACTION);
+			if (fraction <= 0.0 || fraction > 1.0) {
+				throw new IllegalConfigurationException("Configured default slot fraction (" + fraction + ") must be in the range of (0.0, 1.0].");
+			}
+			return BigDecimal.valueOf(fraction);
+		} else {
+			final int numOfSlots = config.getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
+			if (numOfSlots <= 0) {
+				throw new IllegalConfigurationException("Configured number of slots (" + numOfSlots + ") must greater than 0.");
+			}
+			return BigDecimal.valueOf(1).divide(BigDecimal.valueOf(numOfSlots), 16, RoundingMode.DOWN);
+		}
 	}
 
 	private static class RangeFraction {
