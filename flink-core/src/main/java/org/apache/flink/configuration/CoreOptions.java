@@ -219,7 +219,7 @@ public class CoreOptions {
 	//  program
 	// ------------------------------------------------------------------------
 
-	@Documentation.CommonOption(position = Documentation.CommonOption.POSITION_PARALLELISM_SLOTS)
+	@Documentation.CommonOption(position = Documentation.CommonOption.POSITION_PARALLELISM_SLOT_FRACTION)
 	public static final ConfigOption<Integer> DEFAULT_PARALLELISM = ConfigOptions
 		.key("parallelism.default")
 		.defaultValue(1)
