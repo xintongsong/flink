@@ -19,6 +19,7 @@
 package org.apache.flink.yarn.configuration;
 
 import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.configuration.description.Description;
 
 import java.util.List;
@@ -74,7 +75,9 @@ public class YarnConfigOptions {
 
 	/**
 	 * The vcores exposed by YARN.
+	 * @deprecated Use {@link TaskManagerOptions#CPU_CORES} instead.
 	 */
+	@Deprecated
 	public static final ConfigOption<Integer> VCORES =
 		key("yarn.containers.vcores")
 			.defaultValue(-1)

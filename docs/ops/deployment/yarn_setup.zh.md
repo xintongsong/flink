@@ -132,7 +132,7 @@ Once Flink is deployed in your YARN cluster, it will show you the connection det
 Stop the YARN session by stopping the unix process (using CTRL+C) or by entering 'stop' into the client.
 
 Flink on YARN will only start if enough resources are available for the ApplicationMaster on the cluster. Most YARN schedulers account for the requested memory of the containers,
-some account also for the number of vcores. By default, the number of vcores is equal to the processing slots (`-s`) argument. The [`yarn.containers.vcores`]({{ site.baseurl }}/ops/config.html#yarn-containers-vcores) allows overwriting the
+some account also for the number of vcores. By default, the number of vcores is equal to the processing slots (`-s`) argument. The [`taskmanager.cpu.cores`]({{ site.baseurl }}/ops/config.html#taskmanager-cpu-cores) allows overwriting the
 number of vcores with a custom value. In order for this parameter to work you should enable CPU scheduling in your cluster.
 
 #### Detached YARN Session

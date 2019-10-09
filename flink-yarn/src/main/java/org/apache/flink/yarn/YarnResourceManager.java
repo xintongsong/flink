@@ -186,9 +186,12 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 		this.webInterfaceUrl = webInterfaceUrl;
 		this.numberOfTaskSlots = flinkConfig.getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
 
-		this.taskExecutorResourceSpec = TaskExecutorResourceUtils.resourceSpecFromConfig(flinkConfig);
+		this.defaultCpus = getCpuCores(flinkConfig, numberOfTaskSlots);
+		this.taskExecutorResourceSpec = TaskExecutorResourceUtils
+			.newResourceSpecBuilder(flinkConfig)
+			.withCpuCores(defaultCpus)
+			.build();
 		this.defaultTaskManagerMemoryMB = taskExecutorResourceSpec.getTotalProcessMemorySize().getMebiBytes();
-		this.defaultCpus = flinkConfig.getInteger(YarnConfigOptions.VCORES, numberOfTaskSlots);
 		this.resource = Resource.newInstance(defaultTaskManagerMemoryMB, defaultCpus);
 
 		this.slotsPerWorker = createWorkerSlotProfiles(flinkConfig);
@@ -617,5 +620,18 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 		taskExecutorLaunchContext.getEnvironment()
 				.put(ENV_FLINK_NODE_ID, host);
 		return taskExecutorLaunchContext;
+	}
+
+	private static int getCpuCores(final Configuration configuration, final int numberOfTaskSlots) {
+		double configuredCpu;
+		if (configuration.contains(TaskManagerOptions.CPU_CORES)) {
+			configuredCpu = configuration.getDouble(TaskManagerOptions.CPU_CORES);
+			Preconditions.checkArgument(configuredCpu == Math.floor(configuredCpu),
+				"Configured TaskExecutor cpu cores on Yarn must be an integer value.");
+		} else {
+			configuredCpu = configuration.getInteger(YarnConfigOptions.VCORES);
+		}
+
+		return configuredCpu > 0.0 ? (int) configuredCpu : numberOfTaskSlots;
 	}
 }
