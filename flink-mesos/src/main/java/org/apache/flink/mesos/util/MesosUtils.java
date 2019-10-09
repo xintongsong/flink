@@ -21,7 +21,6 @@ package org.apache.flink.mesos.util;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.IllegalConfigurationException;
-import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.mesos.configuration.MesosOptions;
 import org.apache.flink.mesos.runtime.clusterframework.MesosConfigKeys;
 import org.apache.flink.mesos.runtime.clusterframework.MesosTaskManagerParameters;
@@ -110,8 +109,8 @@ public class MesosUtils {
 		final MesosTaskManagerParameters taskManagerParameters = MesosTaskManagerParameters.create(configuration);
 		final TaskExecutorResourceSpec taskExecutorResourceSpec = taskManagerParameters.containeredParameters().getTaskExecutorResourceSpec();
 
-		log.info("TaskManagers will be created with {} task slots",
-			configuration.getInteger(TaskManagerOptions.NUM_TASK_SLOTS));
+		log.info("TaskManagers will be created with default slot fraction {}",
+			taskExecutorResourceSpec.getDefaultSlotFraction().doubleValue());
 		log.info("TaskManagers will be started with container size {} MB, JVM heap size {} MB, " +
 				"JVM direct memory limit {} MB, {} cpus, {} gpus, disk space {} MB",
 			taskExecutorResourceSpec.getTotalProcessMemorySize().getMebiBytes(),

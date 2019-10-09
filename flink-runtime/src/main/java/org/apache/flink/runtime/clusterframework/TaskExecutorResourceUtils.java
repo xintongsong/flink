@@ -25,6 +25,7 @@ import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.util.ConfigurationParserUtils;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 
@@ -74,6 +75,7 @@ public class TaskExecutorResourceUtils {
 		configs.put(TaskManagerOptions.SHUFFLE_MEMORY_MIN.key(), taskExecutorResourceSpec.getShuffleMemSize().getBytes() + "b");
 		configs.put(TaskManagerOptions.SHUFFLE_MEMORY_MAX.key(), taskExecutorResourceSpec.getShuffleMemSize().getBytes() + "b");
 		configs.put(TaskManagerOptions.MANAGED_MEMORY_SIZE.key(), taskExecutorResourceSpec.getManagedMemorySize().getBytes() + "b");
+		configs.put(TaskManagerOptions.DEFAULT_SLOT_FRACTION.key(), String.valueOf(taskExecutorResourceSpec.getDefaultSlotFraction().doubleValue()));
 		return assembleDynamicConfigsStr(configs);
 	}
 
@@ -83,6 +85,21 @@ public class TaskExecutorResourceUtils {
 			sb.append("-D ").append(entry.getKey()).append("=").append(entry.getValue()).append(" ");
 		}
 		return sb.toString();
+	}
+
+	// ------------------------------------------------------------------------
+	//  Generating Default Slot Resource Profiles
+	// ------------------------------------------------------------------------
+
+	public static ResourceProfile generateDefaultSlotResourceProfile(TaskExecutorResourceSpec taskExecutorResourceSpec) {
+		BigDecimal defaultSlotFraction = taskExecutorResourceSpec.getDefaultSlotFraction();
+		return ResourceProfile.newBuilder()
+			.setCpuCores(taskExecutorResourceSpec.getCpuCores().multiply(defaultSlotFraction))
+			.setTaskHeapMemory(taskExecutorResourceSpec.getTaskHeapSize().multiply(defaultSlotFraction))
+			.setTaskOffHeapMemory(taskExecutorResourceSpec.getTaskOffHeapSize().multiply(defaultSlotFraction))
+			.setManagedMemory(taskExecutorResourceSpec.getManagedMemorySize().multiply(defaultSlotFraction))
+			.setShuffleMemory(taskExecutorResourceSpec.getShuffleMemSize().multiply(defaultSlotFraction))
+			.build();
 	}
 
 	// ------------------------------------------------------------------------
@@ -536,11 +553,9 @@ public class TaskExecutorResourceUtils {
 			}
 		} else if (fallback >= 0.0) {
 			cpuCores = BigDecimal.valueOf(fallback);
-		} else if (config.contains(TaskManagerOptions.DEFAULT_SLOT_FRACTION)) {
-			double fraction = config.getDouble(TaskManagerOptions.DEFAULT_SLOT_FRACTION);
-			cpuCores = BigDecimal.ONE.divide(BigDecimal.valueOf(fraction), 16, BigDecimal.ROUND_DOWN);
 		} else {
-			cpuCores = BigDecimal.valueOf(config.getInteger(TaskManagerOptions.NUM_TASK_SLOTS));
+			final BigDecimal defaultSlotFraction = getDefaultSlotFraction(config);
+			cpuCores = BigDecimal.ONE.divide(defaultSlotFraction, 16, BigDecimal.ROUND_DOWN);
 		}
 		return new CPUResource(cpuCores);
 	}
@@ -556,7 +571,25 @@ public class TaskExecutorResourceUtils {
 			flinkInternalMemory.shuffle,
 			flinkInternalMemory.managed,
 			jvmMetaspaceAndOverhead.metaspace,
-			jvmMetaspaceAndOverhead.overhead);
+			jvmMetaspaceAndOverhead.overhead,
+			getDefaultSlotFraction(config));
+	}
+
+	@SuppressWarnings("deprecation")
+	private static BigDecimal getDefaultSlotFraction(final Configuration config) {
+		if (config.contains(TaskManagerOptions.DEFAULT_SLOT_FRACTION)) {
+			final double fraction = config.getDouble(TaskManagerOptions.DEFAULT_SLOT_FRACTION);
+			if (fraction <= 0.0 || fraction > 1.0) {
+				throw new IllegalConfigurationException("Configured default slot fraction (" + fraction + ") must be in the range of (0.0, 1.0].");
+			}
+			return BigDecimal.valueOf(fraction);
+		} else {
+			final int numOfSlots = config.getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
+			if (numOfSlots <= 0) {
+				throw new IllegalConfigurationException("Configured number of slots (" + numOfSlots + ") must greater than 0.");
+			}
+			return BigDecimal.valueOf(1).divide(BigDecimal.valueOf(numOfSlots), 16, BigDecimal.ROUND_DOWN);
+		}
 	}
 
 	private static class RangeFraction {

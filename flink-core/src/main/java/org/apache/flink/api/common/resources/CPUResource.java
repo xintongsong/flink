@@ -32,6 +32,8 @@ public class CPUResource extends Resource {
 
 	public static final String NAME = "CPU";
 
+	public static final CPUResource MAX_VALUE = new CPUResource(Double.MAX_VALUE);
+
 	public CPUResource(double value) {
 		super(NAME, value);
 	}
