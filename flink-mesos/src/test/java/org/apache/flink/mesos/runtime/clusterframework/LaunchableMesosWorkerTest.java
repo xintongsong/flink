@@ -84,8 +84,10 @@ public class LaunchableMesosWorkerTest extends TestLogger {
 	public void launch_withNonDefaultConfiguration_forwardsConfigurationValues() {
 		final Configuration configuration = new Configuration();
 		configuration.setString(MesosOptions.MASTER_URL, "foobar");
-		final MemorySize memorySize = new MemorySize(1337L);
-		configuration.setString(TaskManagerOptions.LEGACY_MANAGED_MEMORY_SIZE, memorySize.toString());
+		final MemorySize taskHeapMemorySize = new MemorySize(2103L);
+		final MemorySize managedMemorySize = new MemorySize(1337L);
+		configuration.setString(TaskManagerOptions.TASK_HEAP_MEMORY, taskHeapMemorySize.toString());
+		configuration.setString(TaskManagerOptions.LEGACY_MANAGED_MEMORY_SIZE, managedMemorySize.toString());
 
 		final LaunchableTask launchableTask = new LaunchableMesosWorker(
 			ignored -> Option.empty(),
@@ -100,7 +102,10 @@ public class LaunchableMesosWorkerTest extends TestLogger {
 
 		assertThat(
 			taskInfo.getCommand().getValue(),
-			containsString(ContainerSpecification.createDynamicProperty(TaskManagerOptions.LEGACY_MANAGED_MEMORY_SIZE.key(), memorySize.toString())));
+			containsString(ContainerSpecification.createDynamicProperty(TaskManagerOptions.LEGACY_MANAGED_MEMORY_SIZE.key(), managedMemorySize.toString())));
+		assertThat(
+			taskInfo.getCommand().getValue(),
+			containsString(ContainerSpecification.createDynamicProperty(TaskManagerOptions.TASK_HEAP_MEMORY.key(), taskHeapMemorySize.toString())));
 	}
 
 }
