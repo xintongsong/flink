@@ -67,6 +67,15 @@ public abstract class Resource implements Serializable {
 		return create(value.subtract(other.value));
 	}
 
+	public Resource multiply(BigDecimal multiplier) {
+		checkArgument(multiplier.compareTo(BigDecimal.ZERO) >= 0, "multiplier must be >= 0");
+		return create(value.multiply(multiplier));
+	}
+
+	public Resource multiply(double multiplier) {
+		return multiply(BigDecimal.valueOf(multiplier));
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
