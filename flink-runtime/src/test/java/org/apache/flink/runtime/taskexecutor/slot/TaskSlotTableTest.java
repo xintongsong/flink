@@ -107,4 +107,30 @@ public class TaskSlotTableTest extends TestLogger {
 			taskSlotTable.stop();
 		}
 	}
+
+	@Test
+	public void testFreeSlot() throws SlotNotFoundException {
+		final TaskSlotTable taskSlotTable = TaskSlotUtils.createTaskSlotTable(2);
+
+		try {
+			taskSlotTable.start(new TestingSlotActionsBuilder().build());
+
+			final JobID jobId = new JobID();
+			final AllocationID allocationId1 = new AllocationID();
+			final AllocationID allocationId2 = new AllocationID();
+
+			assertThat(taskSlotTable.allocateSlot(0, jobId, allocationId1, SLOT_TIMEOUT), is(true));
+			assertThat(taskSlotTable.allocateSlot(1, jobId, allocationId2, SLOT_TIMEOUT), is(true));
+
+			assertThat(taskSlotTable.freeSlot(allocationId2), is(1));
+
+			Iterator<TaskSlot> allocatedSlots = taskSlotTable.getAllocatedSlots(jobId);
+			assertThat(allocatedSlots.next().getIndex(), is(0));
+			assertThat(allocatedSlots.hasNext(), is(false));
+			assertThat(taskSlotTable.isAllocated(1, jobId, allocationId1), is(false));
+			assertThat(taskSlotTable.isSlotFree(1), is(true));
+		} finally {
+			taskSlotTable.stop();
+		}
+	}
 }
