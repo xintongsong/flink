@@ -23,6 +23,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.memory.MemoryManager;
@@ -36,7 +37,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -47,6 +47,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Container for multiple {@link TaskSlot} instances. Additionally, it maintains multiple indices
@@ -83,14 +85,17 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 	private volatile boolean started;
 
 	public TaskSlotTable(
-		final List<TaskSlot> taskSlots,
+		final int numberSlots,
+		final ResourceProfile defaultSlotResourceProfile,
+		final int memoryPageSize,
 		final TimerService<AllocationID> timerService) {
-
-		int numberSlots = taskSlots.size();
 
 		Preconditions.checkArgument(0 < numberSlots, "The number of task slots must be greater than 0.");
 
-		this.taskSlots = new ArrayList<>(taskSlots);
+		this.taskSlots = IntStream
+			.range(0, numberSlots)
+			.mapToObj(index -> new TaskSlot(index, defaultSlotResourceProfile, memoryPageSize))
+			.collect(Collectors.toList());
 		this.timerService = Preconditions.checkNotNull(timerService);
 
 		allocationIDTaskSlotMap = new HashMap<>(numberSlots);
