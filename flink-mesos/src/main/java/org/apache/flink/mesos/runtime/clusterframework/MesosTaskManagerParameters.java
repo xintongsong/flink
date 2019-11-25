@@ -343,12 +343,11 @@ public class MesosTaskManagerParameters {
 		// parse the common parameters
 		ContaineredTaskManagerParameters containeredParameters = ContaineredTaskManagerParameters.create(
 			flinkConfig,
-			taskExecutorResourceSpec,
-			flinkConfig.getInteger(MESOS_RM_TASKS_SLOTS));
+			taskExecutorResourceSpec);
 
 		double cpus = flinkConfig.getDouble(MESOS_RM_TASKS_CPUS);
 		if (cpus <= 0.0) {
-			cpus = Math.max(containeredParameters.numSlots(), 1.0);
+			cpus = Math.max(flinkConfig.getInteger(MESOS_RM_TASKS_SLOTS), 1.0);
 		}
 
 		int gpus = flinkConfig.getInteger(MESOS_RM_TASKS_GPUS);

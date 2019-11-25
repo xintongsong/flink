@@ -191,7 +191,7 @@ public class UtilsTest extends TestLogger {
 		amCredentials.writeTokenStorageFile(new org.apache.hadoop.fs.Path(credentialFile.getAbsolutePath()), yarnConf);
 
 		TaskExecutorResourceSpec spec = TaskExecutorResourceUtils.resourceSpecFromConfig(flinkConf, MemorySize.parse("1g"));
-		ContaineredTaskManagerParameters tmParams = new ContaineredTaskManagerParameters(spec, 1, new HashMap<>(1));
+		ContaineredTaskManagerParameters tmParams = new ContaineredTaskManagerParameters(spec, new HashMap<>(1));
 		Configuration taskManagerConf = new Configuration();
 
 		String workingDirectory = root.getAbsolutePath();
