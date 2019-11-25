@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -95,6 +95,9 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 	/** Whether the table has been started. */
 	private volatile boolean started;
 
+	/** Index of next allocated slot, for dynamic slot allocation. */
+	private int nextSlotIndex;
+
 	public TaskSlotTable(
 		final int numberSlots,
 		final ResourceProfile defaultSlotResourceProfile,
@@ -119,6 +122,7 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 
 		slotActions = null;
 		started = false;
+		nextSlotIndex = numberSlots;
 	}
 
 	/**
@@ -171,7 +175,7 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 	// ---------------------------------------------------------------------
 
 	public SlotReport createSlotReport(ResourceID resourceId) {
-		List<SlotStatus> slotStatuses = Arrays.asList(new SlotStatus[numberSlots]);
+		List<SlotStatus> slotStatuses = new ArrayList<>();
 
 		for (int i = 0; i < numberSlots; i++) {
 			SlotID slotId = new SlotID(resourceId, i);
@@ -192,7 +196,19 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 					null);
 			}
 
-			slotStatuses.set(i, slotStatus);
+			slotStatuses.add(slotStatus);
+		}
+
+		for (TaskSlot taskSlot : taskSlots.values()) {
+			if (taskSlot.getIndex() >= numberSlots) {
+				SlotID slotID = new SlotID(resourceId, taskSlot.getIndex());
+				SlotStatus slotStatus = new SlotStatus(
+					slotID,
+					taskSlot.getResourceProfile(),
+					taskSlot.getJobId(),
+					taskSlot.getAllocationId());
+				slotStatuses.add(slotStatus);
+			}
 		}
 
 		final SlotReport slotReport = new SlotReport(slotStatuses);
@@ -205,10 +221,11 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 	// ---------------------------------------------------------------------
 
 	/**
-	 * Allocate the slot with the given index for the given job and allocation id. Returns true if
-	 * the slot could be allocated. Otherwise it returns false.
+	 * Allocate the slot with the given index for the given job and allocation id. If negative index is
+	 * given, a new auto increasing index will be generated. Returns true if the slot could be allocated.
+	 * Otherwise it returns false.
 	 *
-	 * @param index of the task slot to allocate
+	 * @param index of the task slot to allocate, use negative value for dynamic slot allocation
 	 * @param jobId to allocate the task slot for
 	 * @param allocationId identifying the allocation
 	 * @param slotTimeout until the slot times out
@@ -232,7 +249,12 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 				duplicatedTaskSlot.getResourceProfile(),
 				duplicatedTaskSlot.getJobId(),
 				duplicatedTaskSlot.getAllocationId());
-			return false;
+			return duplicatedTaskSlot.getJobId().equals(jobId) &&
+				duplicatedTaskSlot.getAllocationId().equals(allocationId);
+		}
+
+		if (index < 0) {
+			index = nextSlotIndex++;
 		}
 
 		taskSlot = new TaskSlot(index, defaultSlotResourceProfile, memoryPageSize, jobId, allocationId);

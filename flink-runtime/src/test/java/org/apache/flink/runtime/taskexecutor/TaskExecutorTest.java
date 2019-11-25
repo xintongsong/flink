@@ -1931,6 +1931,49 @@ public class TaskExecutorTest extends TestLogger {
 		}
 	}
 
+	@Test
+	public void testSlotAllocationWithDynamicSlotId() throws Exception {
+		final JobMasterId jobMasterId = JobMasterId.generate();
+		final AllocationID allocationId = new AllocationID();
+
+		final OneShotLatch taskInTerminalState = new OneShotLatch();
+		final TaskManagerActions taskManagerActions = createTaskManagerActionsWithTerminalStateTrigger(taskInTerminalState);
+		final JobManagerTable jobManagerTable = createJobManagerTableWithOneJob(jobMasterId, taskManagerActions);
+		final TaskSlotTable taskSlotTable = TaskSlotUtils.createTaskSlotTable(1);
+		final TaskExecutor taskExecutor = createTaskExecutor(new TaskManagerServicesBuilder()
+			.setTaskSlotTable(taskSlotTable)
+			.setJobManagerTable(jobManagerTable)
+			.build());
+
+		try {
+			taskExecutor.start();
+
+			final TaskExecutorGateway taskExecutorGateway = taskExecutor.getSelfGateway(TaskExecutorGateway.class);
+			final JobMasterGateway jobMasterGateway = jobManagerTable.get(jobId).getJobManagerGateway();
+			final CompletableFuture<Tuple3<ResourceID, InstanceID, SlotReport>> initialSlotReportFuture =
+				new CompletableFuture<>();
+			ResourceManagerId resourceManagerId = createAndRegisterResourceManager(initialSlotReportFuture);
+			initialSlotReportFuture.get();
+
+			taskExecutorGateway
+				.requestSlot(
+					SlotID.generateDynamicSlotID(ResourceID.generate()),
+					jobId,
+					allocationId,
+					jobMasterGateway.getAddress(),
+					resourceManagerId,
+					timeout)
+				.get();
+
+			ResourceID resourceId = ResourceID.generate();
+			assertThat(taskSlotTable.createSlotReport(resourceId), containsInAnyOrder(
+					new SlotStatus(new SlotID(resourceId, 0), DEFAULT_RESOURCE_PROFILE),
+					new SlotStatus(new SlotID(resourceId, 1), DEFAULT_RESOURCE_PROFILE, jobId, allocationId)));
+		} finally {
+			RpcUtils.terminateRpcEndpoint(taskExecutor, timeout);
+		}
+	}
+
 	private TaskExecutorLocalStateStoresManager createTaskExecutorLocalStateStoresManager() throws IOException {
 		return new TaskExecutorLocalStateStoresManager(
 			false,
