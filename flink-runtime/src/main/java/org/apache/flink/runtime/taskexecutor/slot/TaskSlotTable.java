@@ -99,8 +99,11 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 	/** Index of next allocated slot, for dynamic slot allocation. */
 	private int nextSlotIndex;
 
+	private final ResourceBudgetManager budgetManager;
+
 	public TaskSlotTable(
 		final int numberSlots,
+		final ResourceProfile totalAvailableResourceProfile,
 		final ResourceProfile defaultSlotResourceProfile,
 		final int memoryPageSize,
 		final TimerService<AllocationID> timerService) {
@@ -114,6 +117,8 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 		this.taskSlots = new HashMap<>(numberSlots);
 
 		this.timerService = Preconditions.checkNotNull(timerService);
+
+		budgetManager = new ResourceBudgetManager(Preconditions.checkNotNull(totalAvailableResourceProfile));
 
 		allocationIDTaskSlotMap = new HashMap<>(numberSlots);
 
@@ -258,6 +263,15 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 			index = nextSlotIndex++;
 		}
 
+		if (!budgetManager.reserve(defaultSlotResourceProfile)) {
+			LOG.info("Cannot allocate the requested resources. Trying to allocate {}, "
+					+ "while the currently remaining available resources are {}, total is {}.",
+				defaultSlotResourceProfile,
+				budgetManager.getAvailableBudget(),
+				budgetManager.getTotalBudget());
+			return false;
+		}
+
 		taskSlot = new TaskSlot(index, defaultSlotResourceProfile, memoryPageSize, jobId, allocationId);
 		taskSlots.put(index, taskSlot);
 
@@ -396,6 +410,7 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 
 				taskSlot.close();
 				taskSlots.remove(taskSlot.getIndex());
+				budgetManager.release(taskSlot.getResourceProfile());
 
 				return taskSlot.getIndex();
 			} else {
