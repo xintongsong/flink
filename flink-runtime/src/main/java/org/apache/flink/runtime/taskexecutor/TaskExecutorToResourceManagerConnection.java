@@ -29,6 +29,7 @@ import org.apache.flink.runtime.registration.RetryingRegistration;
 import org.apache.flink.runtime.registration.RetryingRegistrationConfiguration;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
+import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
 import org.apache.flink.runtime.rpc.RpcService;
 
 import org.slf4j.Logger;
@@ -159,11 +160,7 @@ public class TaskExecutorToResourceManagerConnection
 
 			Time timeout = Time.milliseconds(timeoutMillis);
 			return resourceManager.registerTaskExecutor(
-				taskExecutorAddress,
-				resourceID,
-				dataPort,
-				hardwareDescription,
-				defaultSlotResourceProfile,
+				new TaskExecutorRegistration(taskExecutorAddress, resourceID, dataPort, hardwareDescription, defaultSlotResourceProfile),
 				timeout);
 		}
 	}

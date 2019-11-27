@@ -78,11 +78,11 @@ public class TaskExecutorToResourceManagerConnectionTest extends TestLogger {
 	public void testResourceManagerRegistration() throws Exception {
 		final TaskExecutorToResourceManagerConnection resourceManagerRegistration = createTaskExecutorToResourceManagerConnection();
 
-		testingResourceManagerGateway.setRegisterTaskExecutorFunction(tuple -> {
-			final String actualAddress = tuple.f0;
-			final ResourceID actualResourceId = tuple.f1;
-			final Integer actualDataPort = tuple.f2;
-			final HardwareDescription actualHardwareDescription = tuple.f3;
+		testingResourceManagerGateway.setRegisterTaskExecutorFunction(params -> {
+			final String actualAddress = params.getTaskExecutorAddress();
+			final ResourceID actualResourceId = params.getResourceId();
+			final Integer actualDataPort = params.getDataPort();
+			final HardwareDescription actualHardwareDescription = params.getHardwareDescription();
 
 			assertThat(actualAddress, is(equalTo(TASK_MANAGER_ADDRESS)));
 			assertThat(actualResourceId, is(equalTo(TASK_MANAGER_RESOURCE_ID)));
