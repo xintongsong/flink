@@ -31,7 +31,9 @@ import org.apache.flink.runtime.util.EnvironmentInformation;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -91,6 +93,12 @@ public class TaskExecutorResourceUtils {
 	// ------------------------------------------------------------------------
 	//  Generating Default Slot Resource Profiles
 	// ------------------------------------------------------------------------
+
+	public static List<ResourceProfile> createDefaultWorkerSlotProfiles(TaskExecutorResourceSpec taskExecutorResourceSpec) {
+		final int numSlots = BigDecimal.valueOf(1.0).divideToIntegralValue(taskExecutorResourceSpec.getDefaultSlotFraction()).intValue();
+		final ResourceProfile resourceProfile = generateDefaultSlotResourceProfile(taskExecutorResourceSpec);
+		return Collections.nCopies(numSlots, resourceProfile);
+	}
 
 	public static ResourceProfile generateDefaultSlotResourceProfile(TaskExecutorResourceSpec taskExecutorResourceSpec) {
 		BigDecimal defaultSlotFraction = taskExecutorResourceSpec.getDefaultSlotFraction();
