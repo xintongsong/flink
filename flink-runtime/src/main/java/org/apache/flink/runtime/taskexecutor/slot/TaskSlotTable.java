@@ -237,7 +237,24 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 	 * @param slotTimeout until the slot times out
 	 * @return True if the task slot could be allocated; otherwise false
 	 */
+	@VisibleForTesting
 	public boolean allocateSlot(int index, JobID jobId, AllocationID allocationId, Time slotTimeout) {
+		return allocateSlot(index, jobId, allocationId, defaultSlotResourceProfile, slotTimeout);
+	}
+
+	/**
+	 * Allocate the slot with the given index for the given job and allocation id. If negative index is
+	 * given, a new auto increasing index will be generated. Returns true if the slot could be allocated.
+	 * Otherwise it returns false.
+	 *
+	 * @param index of the task slot to allocate, use negative value for dynamic slot allocation
+	 * @param jobId to allocate the task slot for
+	 * @param allocationId identifying the allocation
+	 * @param resourceProfile of the requested slot, used only for dynamic slot allocation and will be ignored otherwise
+	 * @param slotTimeout until the slot times out
+	 * @return True if the task slot could be allocated; otherwise false
+	 */
+	public boolean allocateSlot(int index, JobID jobId, AllocationID allocationId, ResourceProfile resourceProfile, Time slotTimeout) {
 		checkInit();
 
 		Preconditions.checkArgument(index < numberSlots);
@@ -246,6 +263,10 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 		if (taskSlot != null) {
 			LOG.info("Allocation ID {} is already allocated in {}.", allocationId, taskSlot);
 			return false;
+		}
+
+		if (index >= 0) {
+			resourceProfile = defaultSlotResourceProfile;
 		}
 
 		if (taskSlots.containsKey(index)) {
@@ -263,16 +284,16 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 			index = nextSlotIndex++;
 		}
 
-		if (!budgetManager.reserve(defaultSlotResourceProfile)) {
+		if (!budgetManager.reserve(resourceProfile)) {
 			LOG.info("Cannot allocate the requested resources. Trying to allocate {}, "
 					+ "while the currently remaining available resources are {}, total is {}.",
-				defaultSlotResourceProfile,
+				resourceProfile,
 				budgetManager.getAvailableBudget(),
 				budgetManager.getTotalBudget());
 			return false;
 		}
 
-		taskSlot = new TaskSlot(index, defaultSlotResourceProfile, memoryPageSize, jobId, allocationId);
+		taskSlot = new TaskSlot(index, resourceProfile, memoryPageSize, jobId, allocationId);
 		taskSlots.put(index, taskSlot);
 
 		// update the allocation id to task slot map

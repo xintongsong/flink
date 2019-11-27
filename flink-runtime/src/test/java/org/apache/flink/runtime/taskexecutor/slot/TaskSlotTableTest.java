@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.SlotStatus;
@@ -157,6 +158,51 @@ public class TaskSlotTableTest extends TestLogger {
 			assertThat(allocatedSlots.next().getIndex(), is(2));
 			assertThat(allocatedSlots.hasNext(), is(false));
 			assertThat(taskSlotTable.isAllocated(2, jobId, allocationId), is(true));
+		} finally {
+			taskSlotTable.stop();
+		}
+	}
+
+	@Test
+	public void testSlotAllocationWithResourceProfile() {
+		final TaskSlotTable taskSlotTable = TaskSlotUtils.createTaskSlotTable(2);
+
+		try {
+			taskSlotTable.start(new TestingSlotActionsBuilder().build());
+
+			final JobID jobId = new JobID();
+			final AllocationID allocationId = new AllocationID();
+			final ResourceProfile resourceProfile = TaskSlotUtils.DEFAULT_RESOURCE_PROFILE
+				.merge(ResourceProfile.newBuilder().setCpuCores(0.1).build());
+
+			assertThat(taskSlotTable.allocateSlot(-1, jobId, allocationId, resourceProfile, SLOT_TIMEOUT), is(true));
+
+			Iterator<TaskSlot> allocatedSlots = taskSlotTable.getAllocatedSlots(jobId);
+			TaskSlot allocatedSlot = allocatedSlots.next();
+			assertThat(allocatedSlot.getIndex(), is(2));
+			assertThat(allocatedSlot.getResourceProfile(), is(resourceProfile));
+			assertThat(allocatedSlots.hasNext(), is(false));
+		} finally {
+			taskSlotTable.stop();
+		}
+	}
+
+	@Test
+	public void testSlotAllocationWithResourceProfileFailure() {
+		final TaskSlotTable taskSlotTable = TaskSlotUtils.createTaskSlotTable(2);
+
+		try {
+			taskSlotTable.start(new TestingSlotActionsBuilder().build());
+
+			final JobID jobId = new JobID();
+			final AllocationID allocationId = new AllocationID();
+			ResourceProfile resourceProfile = TaskSlotUtils.DEFAULT_RESOURCE_PROFILE;
+			resourceProfile = resourceProfile.merge(resourceProfile).merge(resourceProfile);
+
+			assertThat(taskSlotTable.allocateSlot(-1, jobId, allocationId, resourceProfile, SLOT_TIMEOUT), is(false));
+
+			Iterator<TaskSlot> allocatedSlots = taskSlotTable.getAllocatedSlots(jobId);
+			assertThat(allocatedSlots.hasNext(), is(false));
 		} finally {
 			taskSlotTable.stop();
 		}
