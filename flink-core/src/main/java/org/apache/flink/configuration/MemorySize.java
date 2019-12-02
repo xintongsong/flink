@@ -138,9 +138,13 @@ public class MemorySize implements java.io.Serializable, Comparable<MemorySize> 
 	}
 
 	public MemorySize multiply(double multiplier) {
-		checkArgument(multiplier >= 0, "multiplier must be >= 0");
+		return multiply(BigDecimal.valueOf(multiplier));
+	}
 
-		BigDecimal product = BigDecimal.valueOf(this.bytes).multiply(BigDecimal.valueOf(multiplier));
+	public MemorySize multiply(BigDecimal multiplier) {
+		checkArgument(multiplier.compareTo(BigDecimal.ZERO) >= 0, "multiplier must be >= 0");
+
+		BigDecimal product = BigDecimal.valueOf(this.bytes).multiply(multiplier);
 		if (product.compareTo(BigDecimal.valueOf(Long.MAX_VALUE)) > 0) {
 			throw new ArithmeticException("long overflow");
 		}
