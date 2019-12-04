@@ -31,7 +31,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.junit.BeforeClass;
-import org.junit.Test;
 
 import java.io.File;
 import java.time.Duration;
@@ -57,7 +56,7 @@ public class YarnDistributedCacheITCase extends YarnTestBase {
 		startYARNWithConfig(YARN_CONFIGURATION);
 	}
 
-	@Test
+	//@Test
 	public void testPerJobModeWithDistributedCache() throws Exception {
 		runTest(() -> {
 			Configuration configuration = new Configuration();
