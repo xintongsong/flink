@@ -60,7 +60,7 @@ public class YarnDistributedCacheITCase extends YarnTestBase {
 	@Test
 	public void testPerJobModeWithDistributedCache() throws Exception {
 		runTest(() -> {
-			Configuration configuration = new Configuration();
+			Configuration configuration = new Configuration(flinkConfiguration);
 			configuration.setString(AkkaOptions.ASK_TIMEOUT, "30 s");
 			final YarnClient yarnClient = getYarnClient();
 
