@@ -195,6 +195,9 @@ public class NettyShuffleEnvironmentConfiguration {
 		boolean forcePartitionReleaseOnConsumption =
 			configuration.getBoolean(NettyShuffleEnvironmentOptions.FORCE_PARTITION_RELEASE_ON_CONSUMPTION);
 
+		System.err.println("Creating NettyShuffleEnvironmentConfiguration, " +
+			"pageSize=" + pageSize +
+			"numberOfNetworkBuffers=" + numberOfNetworkBuffers);
 		return new NettyShuffleEnvironmentConfiguration(
 			numberOfNetworkBuffers,
 			pageSize,
