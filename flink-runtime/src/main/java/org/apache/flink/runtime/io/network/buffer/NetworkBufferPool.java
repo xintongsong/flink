@@ -117,6 +117,7 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 					+ numberOfSegmentsToAllocate + " - " + err.getMessage());
 		}
 
+		long tBeforeAllocate = System.currentTimeMillis();
 		try {
 			for (int i = 0; i < numberOfSegmentsToAllocate; i++) {
 				availableMemorySegments.add(MemorySegmentFactory.allocateUnpooledOffHeapMemory(segmentSize, null));
@@ -137,6 +138,7 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 					", allocated (Mb): " + allocatedMb +
 					", missing (Mb): " + missingMb + "). Cause: " + err.getMessage());
 		}
+		long tAfterAllocation = System.currentTimeMillis();
 
 		availabilityHelper.resetAvailable();
 
@@ -146,6 +148,12 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 				allocatedMb, availableMemorySegments.size(), segmentSize);
 		long t2 = System.currentTimeMillis();
 		System.err.println("Time creating NetworkBufferPool: " + (t2 - t1) + " ms.");
+		System.err.println("Before allocation: " + (tBeforeAllocate - t1) + " ms.");
+		System.err.println("Allocation: " + (tAfterAllocation - tBeforeAllocate) + " ms.");
+		System.err.println("After allocation: " + (t2 - tAfterAllocation) + " ms.");
+		System.err.println("numberOfSegmentsToAllocate=" + numberOfSegmentsToAllocate);
+		System.err.println("segmentSize=" + segmentSize);
+		System.err.println("numberOfSegmentsToRequest=" + numberOfSegmentsToRequest);
 	}
 
 	@Nullable
