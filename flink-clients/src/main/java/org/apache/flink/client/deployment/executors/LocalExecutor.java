@@ -89,6 +89,7 @@ public class LocalExecutor implements Executor {
 	}
 
 	private MiniCluster startMiniCluster(final JobGraph jobGraph, final Configuration configuration) throws Exception {
+		long t1 = System.currentTimeMillis();
 		if (!configuration.contains(RestOptions.BIND_PORT)) {
 			configuration.setString(RestOptions.BIND_PORT, "0");
 		}
@@ -110,12 +111,14 @@ public class LocalExecutor implements Executor {
 						.setRpcServiceSharing(RpcServiceSharing.SHARED)
 						.setNumSlotsPerTaskManager(numSlotsPerTaskManager)
 						.build();
+		System.err.println("MiniClusterConfiguration=" + miniClusterConfiguration);
 
 		final MiniCluster miniCluster = new MiniCluster(miniClusterConfiguration);
 		miniCluster.start();
 
 		configuration.setInteger(RestOptions.PORT, miniCluster.getRestAddress().get().getPort());
-
+		long t2 = System.currentTimeMillis();
+		System.err.println("Time starting MiniCluster: " + (t2 - t1) + " ms.");
 		return miniCluster;
 	}
 

@@ -496,6 +496,7 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 
 	@GuardedBy("lock")
 	private void startTaskManagers() throws Exception {
+		long t1 = System.currentTimeMillis();
 		final int numTaskManagers = miniClusterConfiguration.getNumTaskManagers();
 
 		LOG.info("Starting {} TaskManger(s)", numTaskManagers);
@@ -503,6 +504,9 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 		for (int i = 0; i < numTaskManagers; i++) {
 			startTaskExecutor();
 		}
+		long t2 = System.currentTimeMillis();
+		System.err.println("Time for starting " + numTaskManagers + " TaskManager(s): " + (t2 - t1) + " ms.");
+		System.err.println("Avg: " + 1.0 * (t2 - t1)  / numTaskManagers + "ms.");
 	}
 
 	@VisibleForTesting

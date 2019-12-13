@@ -128,6 +128,16 @@ public class TaskManagerServicesConfiguration {
 		this.retryingRegistrationConfiguration = checkNotNull(retryingRegistrationConfiguration);
 
 		this.systemResourceMetricsProbingInterval = checkNotNull(systemResourceMetricsProbingInterval);
+
+		System.err.println("Creating TaskManagerServicesConfiguration, " +
+			"freeHeapMemoryWithDefrag=" + freeHeapMemoryWithDefrag +
+			", maxJvmHeapMemory=" + maxJvmHeapMemory +
+			", numberOfSlots=" + numberOfSlots +
+			", configuredMemory=" + configuredMemory +
+			", memoryType=" + memoryType +
+			", memoryFraction=" + memoryFraction +
+			", pageSize=" + pageSize +
+			", configuration=" + configuration);
 	}
 
 	// --------------------------------------------------------------------------------------------

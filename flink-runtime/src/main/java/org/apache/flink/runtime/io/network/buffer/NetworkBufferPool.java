@@ -95,7 +95,7 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 		int segmentSize,
 		int numberOfSegmentsToRequest,
 		Duration requestSegmentsTimeout) {
-
+		long t1 = System.currentTimeMillis();
 		this.totalNumberOfMemorySegments = numberOfSegmentsToAllocate;
 		this.memorySegmentSize = segmentSize;
 
@@ -144,6 +144,8 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 		LOG.info("Allocated {} MB for network buffer pool (number of memory segments: {}, bytes per segment: {}).",
 				allocatedMb, availableMemorySegments.size(), segmentSize);
+		long t2 = System.currentTimeMillis();
+		System.err.println("Time creating NetworkBufferPool: " + (t2 - t1) + " ms.");
 	}
 
 	@Nullable
