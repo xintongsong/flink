@@ -325,6 +325,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	}
 
 	private void startTaskExecutorServices() throws Exception {
+		validateRunsInMainThread();
 		try {
 			// start by connecting to the ResourceManager
 			resourceManagerLeaderRetriever.start(new ResourceManagerLeaderListener());
@@ -375,9 +376,10 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		final Throwable throwableBeforeTasksCompletion = jobManagerDisconnectThrowable;
 
 		return FutureUtils
-			.runAfterwards(
+			.runAfterwardsAsync(
 				taskCompletionTracker.failIncompleteTasksAndGetTerminationFuture(),
-				this::stopTaskExecutorServices)
+				this::stopTaskExecutorServices,
+				getMainThreadExecutor())
   		    .handle((ignored, throwable) -> {
   		    	handleOnStopException(throwableBeforeTasksCompletion, throwable);
   		    	return null;
@@ -401,6 +403,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	}
 
 	private void stopTaskExecutorServices() throws Exception {
+		validateRunsInMainThread();
+
 		Exception exception = null;
 
 		try {
