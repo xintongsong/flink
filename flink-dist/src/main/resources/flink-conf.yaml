@@ -42,7 +42,10 @@ jobmanager.rpc.port: 6123
 jobmanager.heap.size: 1024m
 
 
-# The heap size for the TaskManager JVM
+# The total process memory size for the TaskManager.
+#
+# Note this accounts for all memory usages of a TaskManager process, including JVM metaspace and other overheads.
+# To exclude JVM metaspace and other overheads, please use total flink memory size (taskmanager.memory.flink.size) instead.
 
 taskmanager.memory.process.size: 1024m
 
