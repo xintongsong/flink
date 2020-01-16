@@ -68,8 +68,9 @@ echo "[INFO] Runing TPC-DS queries..."
 
 RESULT_DIR="$TARGET_DIR/result"
 mkdir -p "$RESULT_DIR"
-
+start_timer
 $FLINK_DIR/bin/flink run -c org.apache.flink.table.tpcds.TpcdsTestProgram "$TARGET_DIR/TpcdsTestProgram.jar" -sourceTablePath "$TPCDS_DATA_DIR" -queryPath "$TPCDS_QUERY_DIR" -sinkTablePath "$RESULT_DIR" -useTableStats "$USE_TABLE_STATS"
+end_timer
 
 function sql_cleanup() {
   stop_cluster
