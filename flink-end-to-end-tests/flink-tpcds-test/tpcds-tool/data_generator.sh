@@ -32,10 +32,10 @@ generator_dir=$1
 scale_factor=$2
 data_dir=$3
 
-dsdgen_linux_url=https://raw.githubusercontent.com/ververica/tpc-ds-generators/f5d6c11681637908ce15d697ae683676a5383641/generators/dsdgen_linux
+dsdgen_linux_url=http://etaose.oss-cn-hangzhou-zmf.aliyuncs.com/168449%2Fdsdgen_linux
 dsdgen_linux_url_aarch64=https://raw.githubusercontent.com/ververica/tpc-ds-generators/master/generators/dsdgen_linux_aarch64
 dsdgen_macos_url=https://raw.githubusercontent.com/ververica/tpc-ds-generators/f5d6c11681637908ce15d697ae683676a5383641/generators/dsdgen_macos
-tpcds_idx_url=https://raw.githubusercontent.com/ververica/tpc-ds-generators/f5d6c11681637908ce15d697ae683676a5383641/generators/tpcds.idx
+tpcds_idx_url=http://etaose.oss-cn-hangzhou-zmf.aliyuncs.com/168449%2Ftpcds.idx
 
 
 case "$(uname -s)" in
