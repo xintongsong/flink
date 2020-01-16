@@ -104,7 +104,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 		clusterDescriptor.setLocalJarPath(new Path(flinkJar.getPath()));
 
 		ClusterSpecification clusterSpecification = new ClusterSpecification.ClusterSpecificationBuilder()
-			.setTaskManagerMemoryMB(1024)
+			//.setTaskManagerMemoryMB(1024)
 			.setSlotsPerTaskManager(Integer.MAX_VALUE)
 			.createClusterSpecification();
 
@@ -135,7 +135,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 
 		// configure slots
 		ClusterSpecification clusterSpecification = new ClusterSpecification.ClusterSpecificationBuilder()
-			.setTaskManagerMemoryMB(1024)
+			//.setTaskManagerMemoryMB(1024)
 			.createClusterSpecification();
 
 		try {
