@@ -21,10 +21,13 @@ package org.apache.flink.runtime.resourcemanager;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ResourceManagerOptions;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManagerConfiguration;
 import org.apache.flink.util.ConfigurationException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.TimeUtils;
+
+import javax.annotation.Nullable;
 
 /**
  * Configuration class for the {@link ResourceManagerRuntimeServices} class.
@@ -50,7 +53,9 @@ public class ResourceManagerRuntimeServicesConfiguration {
 
 	// ---------------------------- Static methods ----------------------------------
 
-	public static ResourceManagerRuntimeServicesConfiguration fromConfiguration(Configuration configuration) throws ConfigurationException {
+	public static ResourceManagerRuntimeServicesConfiguration fromConfiguration(
+			Configuration configuration,
+			@Nullable TaskExecutorProcessSpec defaultTaskExecutorProcessSpec) throws ConfigurationException {
 
 		final String strJobTimeout = configuration.getString(ResourceManagerOptions.JOB_TIMEOUT);
 		final Time jobTimeout;
@@ -62,7 +67,8 @@ public class ResourceManagerRuntimeServicesConfiguration {
 				"value " + ResourceManagerOptions.JOB_TIMEOUT + '.', e);
 		}
 
-		final SlotManagerConfiguration slotManagerConfiguration = SlotManagerConfiguration.fromConfiguration(configuration);
+		final SlotManagerConfiguration slotManagerConfiguration =
+			SlotManagerConfiguration.fromConfiguration(configuration, defaultTaskExecutorProcessSpec);
 
 		return new ResourceManagerRuntimeServicesConfiguration(jobTimeout, slotManagerConfiguration);
 	}

@@ -25,11 +25,14 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.util.ConfigurationException;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 
 /**
  * Configuration for the {@link SlotManager}.
@@ -43,19 +46,23 @@ public class SlotManagerConfiguration {
 	private final Time taskManagerTimeout;
 	private final boolean waitResultConsumedBeforeRelease;
 	private final boolean evenlySpreadOutSlots;
+	@Nullable
+	private final TaskExecutorProcessSpec defaultTaskExecutorProcessSpec;
 
 	public SlotManagerConfiguration(
 			Time taskManagerRequestTimeout,
 			Time slotRequestTimeout,
 			Time taskManagerTimeout,
 			boolean waitResultConsumedBeforeRelease,
-			boolean evenlySpreadOutSlots) {
+			boolean evenlySpreadOutSlots,
+			@Nullable TaskExecutorProcessSpec defaultTaskExecutorProcessSpec) {
 
 		this.taskManagerRequestTimeout = Preconditions.checkNotNull(taskManagerRequestTimeout);
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
 		this.evenlySpreadOutSlots = evenlySpreadOutSlots;
+		this.defaultTaskExecutorProcessSpec = defaultTaskExecutorProcessSpec;
 	}
 
 	public Time getTaskManagerRequestTimeout() {
@@ -78,7 +85,15 @@ public class SlotManagerConfiguration {
 		return evenlySpreadOutSlots;
 	}
 
-	public static SlotManagerConfiguration fromConfiguration(Configuration configuration) throws ConfigurationException {
+	@Nullable
+	public TaskExecutorProcessSpec getDefaultTaskExecutorProcessSpec() {
+		return defaultTaskExecutorProcessSpec;
+	}
+
+	public static SlotManagerConfiguration fromConfiguration(
+			Configuration configuration,
+			@Nullable TaskExecutorProcessSpec defaultTaskExecutorProcessSpec) throws ConfigurationException {
+
 		final Time rpcTimeout;
 		try {
 			rpcTimeout = AkkaUtils.getTimeoutAsTime(configuration);
@@ -101,7 +116,8 @@ public class SlotManagerConfiguration {
 			slotRequestTimeout,
 			taskManagerTimeout,
 			waitResultConsumedBeforeRelease,
-			evenlySpreadOutSlots);
+			evenlySpreadOutSlots,
+			defaultTaskExecutorProcessSpec);
 	}
 
 	private static Time getSlotRequestTimeout(final Configuration configuration) {

@@ -18,11 +18,13 @@
 
 package org.apache.flink.mesos.runtime.clusterframework;
 
+import org.apache.flink.api.common.resources.CPUResource;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.mesos.runtime.clusterframework.services.MesosServices;
 import org.apache.flink.mesos.util.MesosConfiguration;
 import org.apache.flink.mesos.util.MesosUtils;
 import org.apache.flink.runtime.clusterframework.ContainerSpecification;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
@@ -71,7 +73,8 @@ public class MesosResourceManagerFactory extends ActiveResourceManagerFactory<Re
 			ClusterInformation clusterInformation,
 			@Nullable String webInterfaceUrl,
 			ResourceManagerMetricGroup resourceManagerMetricGroup) throws Exception {
-		final ResourceManagerRuntimeServicesConfiguration rmServicesConfiguration = ResourceManagerRuntimeServicesConfiguration.fromConfiguration(configuration);
+		final ResourceManagerRuntimeServicesConfiguration rmServicesConfiguration =
+			ResourceManagerRuntimeServicesConfiguration.fromConfiguration(configuration, createDefaultTaskExecutorProcessSpec(configuration));
 		final ResourceManagerRuntimeServices rmRuntimeServices = ResourceManagerRuntimeServices.fromConfiguration(
 			rmServicesConfiguration,
 			highAvailabilityServices,
@@ -97,5 +100,11 @@ public class MesosResourceManagerFactory extends ActiveResourceManagerFactory<Re
 			taskManagerContainerSpec,
 			webInterfaceUrl,
 			resourceManagerMetricGroup);
+	}
+
+	@Override
+	protected CPUResource getDefaultCpus(Configuration configuration) {
+		double fallback = configuration.getDouble(MesosTaskManagerParameters.MESOS_RM_TASKS_CPUS);
+		return TaskExecutorProcessUtils.getCpuCoresWithFallback(configuration, fallback);
 	}
 }
