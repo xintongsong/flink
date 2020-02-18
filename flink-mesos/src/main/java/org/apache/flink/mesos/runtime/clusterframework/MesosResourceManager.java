@@ -42,7 +42,6 @@ import org.apache.flink.mesos.util.MesosArtifactServer;
 import org.apache.flink.mesos.util.MesosConfiguration;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.ContainerSpecification;
-import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.concurrent.FutureUtils;
@@ -78,7 +77,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -123,8 +121,6 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 	/** Web url to show in mesos page. */
 	@Nullable
 	private final String webUiUrl;
-
-	private final Collection<ResourceProfile> slotsPerWorker;
 
 	/** Mesos scheduler driver. */
 	private SchedulerDriver schedulerDriver;
@@ -193,10 +189,6 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 		this.workersInNew = new HashMap<>(8);
 		this.workersInLaunch = new HashMap<>(8);
 		this.workersBeingReturned = new HashMap<>(8);
-
-		this.slotsPerWorker = TaskExecutorProcessUtils.createDefaultWorkerSlotProfiles(
-			taskManagerParameters.containeredParameters().getTaskExecutorProcessSpec(),
-			taskManagerParameters.containeredParameters().numSlots());
 	}
 
 	protected ActorRef createSelfActor() {
@@ -432,10 +424,7 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 	}
 
 	@Override
-	public Collection<ResourceProfile> startNewWorker(ResourceProfile resourceProfile) {
-		if (!slotsPerWorker.iterator().next().isMatching(resourceProfile)) {
-			return Collections.emptyList();
-		}
+	public boolean startNewWorker(ResourceProfile resourceProfile) {
 		LOG.info("Starting a new worker.");
 		try {
 			// generate new workers into persistent state and launch associated actors
@@ -455,10 +444,10 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 			// tell the launch coordinator to launch the new tasks
 			launchCoordinator.tell(new LaunchCoordinator.Launch(Collections.singletonList(launchable)), selfActor);
 
-			return slotsPerWorker;
+			return true;
 		} catch (Exception ex) {
 			onFatalError(new ResourceManagerException("Unable to request new workers.", ex));
-			return Collections.emptyList();
+			return false;
 		}
 	}
 
