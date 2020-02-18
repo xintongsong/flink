@@ -26,6 +26,8 @@ import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
@@ -44,6 +46,7 @@ import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
+import org.apache.flink.runtime.resourcemanager.slotmanager.WorkerRequest;
 import org.apache.flink.runtime.resourcemanager.utils.MockResourceManagerRuntimeServices;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -135,6 +138,9 @@ public class YarnResourceManagerTest extends TestLogger {
 
 	private TestingFatalErrorHandler testingFatalErrorHandler;
 
+	private TaskExecutorProcessSpec taskExecutorProcessSpec;
+	private WorkerRequest workerRequest;
+
 	@Rule
 	public TemporaryFolder folder = new TemporaryFolder();
 
@@ -145,6 +151,9 @@ public class YarnResourceManagerTest extends TestLogger {
 		flinkConfig = new Configuration();
 		flinkConfig.setInteger(ResourceManagerOptions.CONTAINERIZED_HEAP_CUTOFF_MIN, 100);
 		flinkConfig.set(TaskManagerOptions.TOTAL_FLINK_MEMORY, MemorySize.parse("1g"));
+
+		taskExecutorProcessSpec = TaskExecutorProcessUtils.processSpecFromConfig(flinkConfig);
+		workerRequest = new WorkerRequest(new WorkerRequest.WorkerTypeID(), taskExecutorProcessSpec);
 
 		File root = folder.getRoot();
 		File home = new File(root, "home");
@@ -329,7 +338,7 @@ public class YarnResourceManagerTest extends TestLogger {
 		}
 	}
 
-	private static Container mockContainer(String host, int port, int containerId, Resource resource) {
+	private static Container mockContainer(String host, int port, int containerId, Resource resource, int priority) {
 		Container mockContainer = mock(Container.class);
 
 		NodeId mockNodeId = NodeId.newInstance(host, port);
@@ -344,7 +353,7 @@ public class YarnResourceManagerTest extends TestLogger {
 		when(mockContainer.getId()).thenReturn(mockContainerId);
 		when(mockContainer.getNodeId()).thenReturn(mockNodeId);
 		when(mockContainer.getResource()).thenReturn(resource);
-		when(mockContainer.getPriority()).thenReturn(Priority.UNDEFINED);
+		when(mockContainer.getPriority()).thenReturn(Priority.newInstance(priority));
 
 		return mockContainer;
 	}
@@ -383,9 +392,9 @@ public class YarnResourceManagerTest extends TestLogger {
 				registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
 
 				// Callback from YARN when container is allocated.
-				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource());
+				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource(taskExecutorProcessSpec), 1);
 
-				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest())))
+				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest(workerRequest))))
 					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
 
 				resourceManager.onContainersAllocated(ImmutableList.of(testingContainer));
@@ -481,9 +490,9 @@ public class YarnResourceManagerTest extends TestLogger {
 				registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
 
 				// Callback from YARN when container is allocated.
-				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource());
+				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource(taskExecutorProcessSpec), 1);
 
-				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest())))
+				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest(workerRequest))))
 					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
 
 				resourceManager.onContainersAllocated(ImmutableList.of(testingContainer));
@@ -510,9 +519,9 @@ public class YarnResourceManagerTest extends TestLogger {
 		new Context() {{
 			runTest(() -> {
 				registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
-				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource());
+				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource(taskExecutorProcessSpec), 1);
 
-				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest())))
+				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest(workerRequest))))
 					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
 
 				resourceManager.onContainersAllocated(ImmutableList.of(testingContainer));
