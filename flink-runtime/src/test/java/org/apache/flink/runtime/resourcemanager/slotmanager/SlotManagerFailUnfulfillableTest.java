@@ -20,6 +20,10 @@ package org.apache.flink.runtime.resourcemanager.slotmanager;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
@@ -51,6 +55,11 @@ import static org.junit.Assert.fail;
  * Tests for setting the SlotManager to eagerly fail unfulfillable requests.
  */
 public class SlotManagerFailUnfulfillableTest extends TestLogger {
+
+	private static final TaskExecutorProcessSpec TASK_EXECUTOR_PROCESS_SPEC =
+		TaskExecutorProcessUtils.newProcessSpecBuilder(new Configuration())
+			.withCpuCores(100.0)
+			.withTotalProcessMemory(MemorySize.ofMebiBytes(10000)).build();
 
 	@Test
 	public void testTurnOnKeepsPendingFulfillableRequests() throws Exception {
@@ -189,13 +198,13 @@ public class SlotManagerFailUnfulfillableTest extends TestLogger {
 			boolean startNewTMs) {
 
 		final ResourceActions resourceManagerActions = new TestingResourceActionsBuilder()
-			.setAllocateResourceFunction((resourceProfile) -> startNewTMs ?
-							Collections.singleton(resourceProfile) :
-							Collections.emptyList())
+			.setAllocateResourceFunction(ignored -> startNewTMs)
 			.setNotifyAllocationFailureConsumer(tuple3 -> notifiedAllocationFailures.add(tuple3))
 			.build();
 
-		SlotManager slotManager = SlotManagerBuilder.newBuilder().build();
+		SlotManager slotManager = SlotManagerBuilder.newBuilder()
+			.setDefaultTaskExecutorProcessSpec(startNewTMs ? TASK_EXECUTOR_PROCESS_SPEC : null)
+			.build();
 		slotManager.start(ResourceManagerId.generate(), Executors.directExecutor(), resourceManagerActions);
 
 		return slotManager;

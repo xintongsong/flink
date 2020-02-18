@@ -20,6 +20,9 @@ package org.apache.flink.runtime.resourcemanager.slotmanager;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
@@ -82,6 +85,9 @@ public class SlotProtocolTest extends TestLogger {
 		final ResourceManagerId rmLeaderID = ResourceManagerId.generate();
 
 		try (SlotManager slotManager = SlotManagerBuilder.newBuilder()
+			.setDefaultTaskExecutorProcessSpec(
+				TaskExecutorProcessUtils.newProcessSpecBuilder(new Configuration())
+					.withTotalProcessMemory(MemorySize.ofMebiBytes(1024)).build())
 			.setScheduledExecutor(scheduledExecutor)
 			.build()) {
 
