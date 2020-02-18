@@ -51,7 +51,7 @@ public interface SlotManager extends AutoCloseable {
 
 	int getNumberFreeSlotsOf(InstanceID instanceId);
 
-	int getNumberPendingTaskManagerSlots();
+	int getNumberPendingWorkers();
 
 	int getNumberPendingSlotRequests();
 
