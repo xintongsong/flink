@@ -91,9 +91,9 @@ public class SlotProtocolTest extends TestLogger {
 			.setScheduledExecutor(scheduledExecutor)
 			.build()) {
 
-			final CompletableFuture<ResourceProfile> resourceProfileFuture = new CompletableFuture<>();
+			final CompletableFuture<WorkerRequest> workerRequestFuture = new CompletableFuture<>();
 			ResourceActions resourceManagerActions = new TestingResourceActionsBuilder()
-				.setAllocateResourceConsumer(resourceProfileFuture::complete)
+				.setAllocateResourceConsumer(workerRequestFuture::complete)
 				.build();
 
 			slotManager.start(rmLeaderID, Executors.directExecutor(), resourceManagerActions);
@@ -106,7 +106,7 @@ public class SlotProtocolTest extends TestLogger {
 
 			slotManager.registerSlotRequest(slotRequest);
 
-			assertThat(resourceProfileFuture.get(), is(equalTo(slotRequest.getResourceProfile())));
+			workerRequestFuture.get();
 
 			// slot becomes available
 			final CompletableFuture<Tuple3<SlotID, JobID, AllocationID>> requestFuture = new CompletableFuture<>();

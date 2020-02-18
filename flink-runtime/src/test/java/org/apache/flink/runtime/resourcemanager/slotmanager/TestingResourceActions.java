@@ -21,7 +21,6 @@ package org.apache.flink.runtime.resourcemanager.slotmanager;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
-import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.instance.InstanceID;
 
 import javax.annotation.Nonnull;
@@ -39,14 +38,14 @@ public class TestingResourceActions implements ResourceActions {
 	private final BiConsumer<InstanceID, Exception> releaseResourceConsumer;
 
 	@Nonnull
-	private final Function<ResourceProfile, Boolean> allocateResourceFunction;
+	private final Function<WorkerRequest, Boolean> allocateResourceFunction;
 
 	@Nonnull
 	private final Consumer<Tuple3<JobID, AllocationID, Exception>> notifyAllocationFailureConsumer;
 
 	public TestingResourceActions(
 			@Nonnull BiConsumer<InstanceID, Exception> releaseResourceConsumer,
-			@Nonnull Function<ResourceProfile, Boolean> allocateResourceFunction,
+			@Nonnull Function<WorkerRequest, Boolean> allocateResourceFunction,
 			@Nonnull Consumer<Tuple3<JobID, AllocationID, Exception>> notifyAllocationFailureConsumer) {
 		this.releaseResourceConsumer = releaseResourceConsumer;
 		this.allocateResourceFunction = allocateResourceFunction;
@@ -59,8 +58,8 @@ public class TestingResourceActions implements ResourceActions {
 	}
 
 	@Override
-	public boolean allocateResource(ResourceProfile resourceProfile){
-		return allocateResourceFunction.apply(resourceProfile);
+	public boolean allocateResource(WorkerRequest workerRequest){
+		return allocateResourceFunction.apply(workerRequest);
 	}
 
 	@Override

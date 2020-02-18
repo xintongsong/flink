@@ -69,6 +69,8 @@ import java.util.concurrent.TimeoutException;
 public class SlotManagerImpl implements SlotManager {
 	private static final Logger LOG = LoggerFactory.getLogger(SlotManagerImpl.class);
 
+	private static final WorkerRequest.WorkerTypeID WORKER_TYPE_ID = new WorkerRequest.WorkerTypeID(123L, 456L);
+
 	/** Scheduled executor for timeouts. */
 	private final ScheduledExecutor scheduledExecutor;
 
@@ -126,10 +128,10 @@ public class SlotManagerImpl implements SlotManager {
 	 * */
 	private boolean failUnfulfillableRequest = true;
 
-	@Nullable
-	private final TaskExecutorProcessSpec taskExecutorProcessSpec;
-
 	private final int numSlotsPerWorker;
+
+	@Nullable
+	private final WorkerRequest workerRequest;
 
 	@Nullable
 	private final ResourceProfile slotResourceProfile;
@@ -150,10 +152,16 @@ public class SlotManagerImpl implements SlotManager {
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
-		this.taskExecutorProcessSpec = taskExecutorProcessSpec;
 		this.numSlotsPerWorker = numSlotsPerWorker;
-		this.slotResourceProfile = taskExecutorProcessSpec == null ? null :
-			TaskExecutorProcessUtils.generateDefaultSlotResourceProfile(taskExecutorProcessSpec, numSlotsPerWorker);
+		if (taskExecutorProcessSpec == null) {
+			// standalone mode
+			this.workerRequest = null;
+			this.slotResourceProfile = null;
+		} else {
+			// active mode
+			this.workerRequest = new WorkerRequest(WORKER_TYPE_ID, taskExecutorProcessSpec);
+			this.slotResourceProfile = TaskExecutorProcessUtils.generateDefaultSlotResourceProfile(taskExecutorProcessSpec, numSlotsPerWorker);
+		}
 
 		slots = new HashMap<>(16);
 		freeSlots = new LinkedHashMap<>(16);
@@ -814,19 +822,19 @@ public class SlotManagerImpl implements SlotManager {
 	}
 
 	private Optional<PendingTaskManagerSlot> allocateResource(ResourceProfile resourceProfile) {
-		if (taskExecutorProcessSpec == null) {
+		if (workerRequest == null) {
 			// standalone mode, cannot allocate resource
 			return Optional.empty();
 		}
 
 		if (!Preconditions.checkNotNull(slotResourceProfile,
-			"slotResourceProfile should be null iff taskExecutorProcessSpec is null, which means standalone mode.")
+			"slotResourceProfile should be null iff workerRequest is null, which means standalone mode.")
 			.isMatching(resourceProfile)) {
 			// requested resource profile is unfulfillable
 			return Optional.empty();
 		}
 
-		if (!resourceActions.allocateResource(resourceProfile)) {
+		if (!resourceActions.allocateResource(workerRequest)) {
 			// resource cannot be allocated
 			return Optional.empty();
 		}
