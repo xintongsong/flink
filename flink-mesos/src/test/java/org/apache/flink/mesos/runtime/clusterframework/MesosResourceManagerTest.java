@@ -65,6 +65,7 @@ import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceActions;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
+import org.apache.flink.runtime.resourcemanager.slotmanager.WorkerRequest;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.TestingRpcService;
@@ -130,11 +131,17 @@ public class MesosResourceManagerTest extends TestLogger {
 
 	private static final Logger LOG = LoggerFactory.getLogger(MesosResourceManagerTest.class);
 
-	private static Configuration flinkConfig = new Configuration();
+	private static final Configuration flinkConfig = new Configuration();
 
 	private static ActorSystem system;
 
 	private static final Time timeout = Time.seconds(10L);
+
+	private static final WorkerRequest workerRequest = new WorkerRequest(
+		new WorkerRequest.WorkerTypeID(),
+		TaskExecutorProcessUtils.newProcessSpecBuilder(flinkConfig)
+			.withTotalProcessMemory(MemorySize.ofMebiBytes(1024))
+			.build());
 
 	@Before
 	public void setup() {
@@ -242,9 +249,6 @@ public class MesosResourceManagerTest extends TestLogger {
 		ResourceID rmResourceID;
 		static final String RM_ADDRESS = "resourceManager";
 		TestingMesosResourceManager resourceManager;
-
-		// domain objects for test purposes
-		final ResourceProfile resourceProfile1 = ResourceProfile.UNKNOWN;
 
 		Protos.FrameworkID framework1 = Protos.FrameworkID.newBuilder().setValue("framework1").build();
 		public Protos.SlaveID slave1 = Protos.SlaveID.newBuilder().setValue("slave1").build();
@@ -474,17 +478,17 @@ public class MesosResourceManagerTest extends TestLogger {
 		/**
 		 * Allocate a worker using the RM.
 		 */
-		public MesosWorkerStore.Worker allocateWorker(Protos.TaskID taskID, ResourceProfile resourceProfile) throws Exception {
+		public MesosWorkerStore.Worker allocateWorker(Protos.TaskID taskID, WorkerRequest workerRequest) throws Exception {
 			when(rmServices.workerStore.newTaskID()).thenReturn(taskID);
 			rmServices.slotManagerStarted.get(timeout.toMilliseconds(), TimeUnit.MILLISECONDS);
 
 			CompletableFuture<Void> allocateResourceFuture = resourceManager.callAsync(
 				() -> {
-					rmServices.rmActions.allocateResource(resourceProfile);
+					rmServices.rmActions.allocateResource(workerRequest);
 					return null;
 				},
 				timeout);
-			MesosWorkerStore.Worker expected = MesosWorkerStore.Worker.newWorker(taskID, resourceProfile);
+			MesosWorkerStore.Worker expected = MesosWorkerStore.Worker.newWorker(taskID, workerRequest);
 
 			// check for exceptions
 			allocateResourceFuture.get(timeout.toMilliseconds(), TimeUnit.MILLISECONDS);
@@ -529,9 +533,9 @@ public class MesosResourceManagerTest extends TestLogger {
 	public void testRecoverWorkers() throws Exception {
 		new Context() {{
 			// set the initial persistent state then initialize the RM
-			MesosWorkerStore.Worker worker1 = MesosWorkerStore.Worker.newWorker(task1);
-			MesosWorkerStore.Worker worker2 = MesosWorkerStore.Worker.newWorker(task2).launchWorker(slave1, slave1host);
-			MesosWorkerStore.Worker worker3 = MesosWorkerStore.Worker.newWorker(task3).launchWorker(slave1, slave1host).releaseWorker();
+			MesosWorkerStore.Worker worker1 = MesosWorkerStore.Worker.newWorker(task1, workerRequest);
+			MesosWorkerStore.Worker worker2 = MesosWorkerStore.Worker.newWorker(task2, workerRequest).launchWorker(slave1, slave1host);
+			MesosWorkerStore.Worker worker3 = MesosWorkerStore.Worker.newWorker(task3, workerRequest).launchWorker(slave1, slave1host).releaseWorker();
 			when(rmServices.workerStore.getFrameworkID()).thenReturn(Option.apply(framework1));
 			when(rmServices.workerStore.recoverWorkers()).thenReturn(Arrays.asList(worker1, worker2, worker3));
 			startResourceManager();
@@ -566,7 +570,7 @@ public class MesosResourceManagerTest extends TestLogger {
 
 			CompletableFuture<Void> allocateResourceFuture = resourceManager.callAsync(
 				() -> {
-					rmServices.rmActions.allocateResource(resourceProfile1);
+					rmServices.rmActions.allocateResource(workerRequest);
 					return null;
 				},
 				timeout);
@@ -576,7 +580,7 @@ public class MesosResourceManagerTest extends TestLogger {
 
 			// verify that a new worker was persisted, the internal state was updated, the task router was notified,
 			// and the launch coordinator was asked to launch a task
-			MesosWorkerStore.Worker expected = MesosWorkerStore.Worker.newWorker(task1, resourceProfile1);
+			MesosWorkerStore.Worker expected = MesosWorkerStore.Worker.newWorker(task1, workerRequest);
 			verify(rmServices.workerStore, Mockito.timeout(timeout.toMilliseconds())).putWorker(expected);
 			assertThat(resourceManager.workersInNew, hasEntry(extractResourceID(task1), expected));
 			resourceManager.taskRouter.expectMsgClass(TaskMonitor.TaskGoalStateUpdated.class);
@@ -609,7 +613,7 @@ public class MesosResourceManagerTest extends TestLogger {
 			startResourceManager();
 
 			// allocate a new worker
-			MesosWorkerStore.Worker worker1 = allocateWorker(task1, resourceProfile1);
+			MesosWorkerStore.Worker worker1 = allocateWorker(task1, workerRequest);
 
 			// send an AcceptOffers message as the LaunchCoordinator would
 			// to launch task1 onto slave1 with offer1
@@ -654,7 +658,7 @@ public class MesosResourceManagerTest extends TestLogger {
 	public void testWorkerStarted() throws Exception {
 		new Context() {{
 			// set the initial state with a (recovered) launched worker
-			MesosWorkerStore.Worker worker1launched = MesosWorkerStore.Worker.newWorker(task1).launchWorker(slave1, slave1host);
+			MesosWorkerStore.Worker worker1launched = MesosWorkerStore.Worker.newWorker(task1, workerRequest).launchWorker(slave1, slave1host);
 			when(rmServices.workerStore.getFrameworkID()).thenReturn(Option.apply(framework1));
 			when(rmServices.workerStore.recoverWorkers()).thenReturn(singletonList(worker1launched));
 			startResourceManager();
@@ -693,7 +697,7 @@ public class MesosResourceManagerTest extends TestLogger {
 	public void testWorkerFailed() throws Exception {
 		new Context() {{
 			// set the initial persistent state with a launched worker
-			MesosWorkerStore.Worker worker1launched = MesosWorkerStore.Worker.newWorker(task1).launchWorker(slave1, slave1host);
+			MesosWorkerStore.Worker worker1launched = MesosWorkerStore.Worker.newWorker(task1, workerRequest).launchWorker(slave1, slave1host);
 			when(rmServices.workerStore.getFrameworkID()).thenReturn(Option.apply(framework1));
 			when(rmServices.workerStore.recoverWorkers()).thenReturn(singletonList(worker1launched));
 			when(rmServices.workerStore.newTaskID()).thenReturn(task2);
@@ -722,7 +726,7 @@ public class MesosResourceManagerTest extends TestLogger {
 	public void testStopWorker() throws Exception {
 		new Context() {{
 			// set the initial persistent state with a launched worker
-			MesosWorkerStore.Worker worker1launched = MesosWorkerStore.Worker.newWorker(task1).launchWorker(slave1, slave1host);
+			MesosWorkerStore.Worker worker1launched = MesosWorkerStore.Worker.newWorker(task1, workerRequest).launchWorker(slave1, slave1host);
 			when(rmServices.workerStore.getFrameworkID()).thenReturn(Option.apply(framework1));
 			when(rmServices.workerStore.recoverWorkers()).thenReturn(singletonList(worker1launched));
 			startResourceManager();
@@ -824,9 +828,9 @@ public class MesosResourceManagerTest extends TestLogger {
 	@Test
 	public void testClearStateAfterRevokeLeadership() throws Exception {
 		new Context() {{
-			final MesosWorkerStore.Worker worker1 = MesosWorkerStore.Worker.newWorker(task1);
-			final MesosWorkerStore.Worker worker2 = MesosWorkerStore.Worker.newWorker(task2).launchWorker(slave1, slave1host);
-			final MesosWorkerStore.Worker worker3 = MesosWorkerStore.Worker.newWorker(task3).launchWorker(slave1, slave1host).releaseWorker();
+			final MesosWorkerStore.Worker worker1 = MesosWorkerStore.Worker.newWorker(task1, workerRequest);
+			final MesosWorkerStore.Worker worker2 = MesosWorkerStore.Worker.newWorker(task2, workerRequest).launchWorker(slave1, slave1host);
+			final MesosWorkerStore.Worker worker3 = MesosWorkerStore.Worker.newWorker(task3, workerRequest).launchWorker(slave1, slave1host).releaseWorker();
 			when(rmServices.workerStore.getFrameworkID()).thenReturn(Option.apply(framework1));
 			when(rmServices.workerStore.recoverWorkers()).thenReturn(Arrays.asList(worker1, worker2, worker3)).thenReturn(Collections.emptyList());
 

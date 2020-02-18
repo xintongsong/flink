@@ -27,7 +27,6 @@ import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceIDRetrievable;
-import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
@@ -54,6 +53,7 @@ import org.apache.flink.runtime.resourcemanager.registration.JobManagerRegistrat
 import org.apache.flink.runtime.resourcemanager.registration.WorkerRegistration;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceActions;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
+import org.apache.flink.runtime.resourcemanager.slotmanager.WorkerRequest;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.FencedRpcEndpoint;
@@ -1025,13 +1025,13 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		@Nullable String optionalDiagnostics) throws ResourceManagerException;
 
 	/**
-	 * Allocates a resource using the resource profile.
+	 * Allocates a resource using the worker request.
 	 *
-	 * @param resourceProfile The resource description
+	 * @param workerRequest that describes the to be allocated worker.
 	 * @return whether the resource can be allocated
 	 */
 	@VisibleForTesting
-	public abstract boolean startNewWorker(ResourceProfile resourceProfile);
+	public abstract boolean startNewWorker(WorkerRequest workerRequest);
 
 	/**
 	 * Callback when a worker was started.
@@ -1069,9 +1069,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		}
 
 		@Override
-		public boolean allocateResource(ResourceProfile resourceProfile) {
+		public boolean allocateResource(WorkerRequest workerRequest) {
 			validateRunsInMainThread();
-			return startNewWorker(resourceProfile);
+			return startNewWorker(workerRequest);
 		}
 
 		@Override

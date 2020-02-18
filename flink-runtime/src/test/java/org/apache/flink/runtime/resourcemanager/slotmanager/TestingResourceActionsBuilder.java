@@ -21,7 +21,6 @@ package org.apache.flink.runtime.resourcemanager.slotmanager;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
-import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.instance.InstanceID;
 
 import java.util.function.BiConsumer;
@@ -33,7 +32,7 @@ import java.util.function.Function;
  */
 public class TestingResourceActionsBuilder {
 	private BiConsumer<InstanceID, Exception> releaseResourceConsumer = (ignoredA, ignoredB) -> {};
-	private Function<ResourceProfile, Boolean> allocateResourceFunction = (ignored) -> true;
+	private Function<WorkerRequest, Boolean> allocateResourceFunction = (ignored) -> true;
 	private Consumer<Tuple3<JobID, AllocationID, Exception>> notifyAllocationFailureConsumer = (ignored) -> {};
 
 	public TestingResourceActionsBuilder setReleaseResourceConsumer(BiConsumer<InstanceID, Exception> releaseResourceConsumer) {
@@ -41,14 +40,14 @@ public class TestingResourceActionsBuilder {
 		return this;
 	}
 
-	public TestingResourceActionsBuilder setAllocateResourceFunction(Function<ResourceProfile, Boolean> allocateResourceFunction) {
+	public TestingResourceActionsBuilder setAllocateResourceFunction(Function<WorkerRequest, Boolean> allocateResourceFunction) {
 		this.allocateResourceFunction = allocateResourceFunction;
 		return this;
 	}
 
-	public TestingResourceActionsBuilder setAllocateResourceConsumer(Consumer<ResourceProfile> allocateResourceConsumer) {
-		this.allocateResourceFunction = (ResourceProfile resourceProfile) -> {
-			allocateResourceConsumer.accept(resourceProfile);
+	public TestingResourceActionsBuilder setAllocateResourceConsumer(Consumer<WorkerRequest> allocateResourceConsumer) {
+		this.allocateResourceFunction = workerRequest -> {
+			allocateResourceConsumer.accept(workerRequest);
 			return true;
 		};
 		return this;
