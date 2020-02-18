@@ -24,6 +24,7 @@ import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.ResourceManagerOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.util.ConfigurationException;
@@ -48,6 +49,7 @@ public class SlotManagerConfiguration {
 	private final boolean evenlySpreadOutSlots;
 	@Nullable
 	private final TaskExecutorProcessSpec defaultTaskExecutorProcessSpec;
+	private final int numSlotsPerWorker;
 
 	public SlotManagerConfiguration(
 			Time taskManagerRequestTimeout,
@@ -55,7 +57,8 @@ public class SlotManagerConfiguration {
 			Time taskManagerTimeout,
 			boolean waitResultConsumedBeforeRelease,
 			boolean evenlySpreadOutSlots,
-			@Nullable TaskExecutorProcessSpec defaultTaskExecutorProcessSpec) {
+			@Nullable TaskExecutorProcessSpec defaultTaskExecutorProcessSpec,
+			int numSlotsPerWorker) {
 
 		this.taskManagerRequestTimeout = Preconditions.checkNotNull(taskManagerRequestTimeout);
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
@@ -63,6 +66,7 @@ public class SlotManagerConfiguration {
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
 		this.evenlySpreadOutSlots = evenlySpreadOutSlots;
 		this.defaultTaskExecutorProcessSpec = defaultTaskExecutorProcessSpec;
+		this.numSlotsPerWorker = numSlotsPerWorker;
 	}
 
 	public Time getTaskManagerRequestTimeout() {
@@ -90,6 +94,10 @@ public class SlotManagerConfiguration {
 		return defaultTaskExecutorProcessSpec;
 	}
 
+	public int getNumSlotsPerWorker() {
+		return numSlotsPerWorker;
+	}
+
 	public static SlotManagerConfiguration fromConfiguration(
 			Configuration configuration,
 			@Nullable TaskExecutorProcessSpec defaultTaskExecutorProcessSpec) throws ConfigurationException {
@@ -111,13 +119,16 @@ public class SlotManagerConfiguration {
 
 		boolean evenlySpreadOutSlots = configuration.getBoolean(ClusterOptions.EVENLY_SPREAD_OUT_SLOTS_STRATEGY);
 
+		int numSlotsPerWorker = configuration.getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
+
 		return new SlotManagerConfiguration(
 			rpcTimeout,
 			slotRequestTimeout,
 			taskManagerTimeout,
 			waitResultConsumedBeforeRelease,
 			evenlySpreadOutSlots,
-			defaultTaskExecutorProcessSpec);
+			defaultTaskExecutorProcessSpec,
+			numSlotsPerWorker);
 	}
 
 	private static Time getSlotRequestTimeout(final Configuration configuration) {

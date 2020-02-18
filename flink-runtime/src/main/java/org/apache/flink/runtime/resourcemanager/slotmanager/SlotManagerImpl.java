@@ -129,6 +129,8 @@ public class SlotManagerImpl implements SlotManager {
 	@Nullable
 	private final TaskExecutorProcessSpec taskExecutorProcessSpec;
 
+	private final int numSlotsPerWorker;
+
 	public SlotManagerImpl(
 			SlotMatchingStrategy slotMatchingStrategy,
 			ScheduledExecutor scheduledExecutor,
@@ -136,7 +138,8 @@ public class SlotManagerImpl implements SlotManager {
 			Time slotRequestTimeout,
 			Time taskManagerTimeout,
 			boolean waitResultConsumedBeforeRelease,
-			@Nullable TaskExecutorProcessSpec taskExecutorProcessSpec) {
+			@Nullable TaskExecutorProcessSpec taskExecutorProcessSpec,
+			int numSlotsPerWorker) {
 
 		this.slotMatchingStrategy = Preconditions.checkNotNull(slotMatchingStrategy);
 		this.scheduledExecutor = Preconditions.checkNotNull(scheduledExecutor);
@@ -145,6 +148,7 @@ public class SlotManagerImpl implements SlotManager {
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
 		this.taskExecutorProcessSpec = taskExecutorProcessSpec;
+		this.numSlotsPerWorker = numSlotsPerWorker;
 
 		slots = new HashMap<>(16);
 		freeSlots = new LinkedHashMap<>(16);
