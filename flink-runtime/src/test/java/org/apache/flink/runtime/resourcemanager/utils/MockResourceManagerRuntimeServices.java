@@ -19,6 +19,9 @@
 package org.apache.flink.runtime.resourcemanager.utils;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.concurrent.ScheduledExecutorServiceAdapter;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.heartbeat.TestingHeartbeatServices;
@@ -50,6 +53,9 @@ public class MockResourceManagerRuntimeServices {
 
 	public MockResourceManagerRuntimeServices(RpcService rpcService, Time timeout) {
 		this(rpcService, timeout, SlotManagerBuilder.newBuilder()
+			.setDefaultTaskExecutorProcessSpec(
+				TaskExecutorProcessUtils.newProcessSpecBuilder(new Configuration())
+					.withTotalProcessMemory(MemorySize.ofMebiBytes(1024)).build())
 			.setScheduledExecutor(new ScheduledExecutorServiceAdapter(new DirectScheduledExecutorService()))
 			.setTaskManagerRequestTimeout(Time.seconds(10))
 			.setSlotRequestTimeout(Time.seconds(10))
