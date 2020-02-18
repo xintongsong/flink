@@ -419,8 +419,7 @@ public class MesosTaskManagerParameters {
 
 		return ContaineredTaskManagerParameters.create(
 			flinkConfig,
-			taskExecutorProcessSpec,
-			flinkConfig.getInteger(MESOS_RM_TASKS_SLOTS));
+			taskExecutorProcessSpec);
 	}
 
 	private static double getCpuCores(final Configuration configuration) {
