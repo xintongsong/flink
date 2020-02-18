@@ -1180,8 +1180,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	//  Resource Management
 	// ------------------------------------------------------------------------
 
-	protected int getNumberRequiredTaskManagers() {
-		return slotManager.getNumberPendingWorkers();
+	protected int getNumberRequiredTaskManagers(WorkerRequest.WorkerTypeID workerTypeId) {
+		return slotManager.getNumberPendingWorkers(workerTypeId);
 	}
 }
 

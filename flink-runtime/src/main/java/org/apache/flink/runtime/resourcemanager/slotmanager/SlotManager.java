@@ -28,6 +28,8 @@ import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerExcept
 import org.apache.flink.runtime.resourcemanager.registration.TaskExecutorConnection;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 
+import javax.annotation.Nullable;
+
 import java.util.concurrent.Executor;
 
 /**
@@ -50,7 +52,7 @@ public interface SlotManager extends AutoCloseable {
 
 	int getNumberFreeSlotsOf(InstanceID instanceId);
 
-	int getNumberPendingWorkers();
+	int getNumberPendingWorkers(@Nullable WorkerRequest.WorkerTypeID workerTypeId);
 
 	int getNumberPendingSlotRequests();
 
