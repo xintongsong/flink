@@ -212,7 +212,7 @@ public class SlotManagerImpl implements SlotManager {
 	}
 
 	@Override
-	public int getNumberPendingWorkers() {
+	public int getNumberPendingWorkers(WorkerRequest.WorkerTypeID workerTypeId) {
 		return (int) Math.ceil((double) pendingSlots.size() / numSlotsPerWorker);
 	}
 

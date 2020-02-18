@@ -61,7 +61,7 @@ public class TestingSlotManager implements SlotManager {
 	}
 
 	@Override
-	public int getNumberPendingWorkers() {
+	public int getNumberPendingWorkers(WorkerRequest.WorkerTypeID workerTypeId) {
 		return 0;
 	}
 
