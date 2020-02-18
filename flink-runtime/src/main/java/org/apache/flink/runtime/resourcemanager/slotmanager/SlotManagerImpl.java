@@ -204,6 +204,11 @@ public class SlotManagerImpl implements SlotManager {
 	}
 
 	@Override
+	public int getNumberPendingWorkers() {
+		return (int) Math.ceil((double) pendingSlots.size() / numSlotsPerWorker);
+	}
+
+	@VisibleForTesting
 	public int getNumberPendingTaskManagerSlots() {
 		return pendingSlots.size();
 	}
