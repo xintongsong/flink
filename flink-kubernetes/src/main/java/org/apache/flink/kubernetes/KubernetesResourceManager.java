@@ -33,7 +33,6 @@ import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
-import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.entrypoint.parser.CommandLineOptions;
@@ -362,11 +361,5 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	protected FlinkKubeClient createFlinkKubeClient() {
 		return KubeClientFactory.fromConfiguration(flinkConfig);
-	}
-
-	@Override
-	protected double getCpuCores(Configuration configuration) {
-		double fallback = configuration.getDouble(KubernetesConfigOptions.TASK_MANAGER_CPU);
-		return TaskExecutorProcessUtils.getCpuCoresWithFallback(configuration, fallback).getValue().doubleValue();
 	}
 }
