@@ -18,6 +18,8 @@
 
 package org.apache.flink.kubernetes.kubeclient;
 
+import org.apache.flink.runtime.resourcemanager.slotmanager.WorkerRequest;
+
 import java.util.List;
 import java.util.Map;
 
@@ -36,17 +38,21 @@ public class TaskManagerPodParameter {
 
 	private final Map<String, String> environmentVariables;
 
+	private final WorkerRequest.WorkerTypeID workerTypeId;
+
 	public TaskManagerPodParameter(
 			String podName,
 			List<String> args,
 			int taskManagerMemoryInMB,
 			double taskManagerCpus,
-			Map<String, String> environmentVariables) {
+			Map<String, String> environmentVariables,
+			WorkerRequest.WorkerTypeID workerTypeId) {
 		this.podName = podName;
 		this.args = args;
 		this.taskManagerMemoryInMB = taskManagerMemoryInMB;
 		this.taskManagerCpus = taskManagerCpus;
 		this.environmentVariables = environmentVariables;
+		this.workerTypeId = workerTypeId;
 	}
 
 	public String getPodName() {
@@ -67,5 +73,9 @@ public class TaskManagerPodParameter {
 
 	public double getTaskManagerCpus() {
 		return taskManagerCpus;
+	}
+
+	public WorkerRequest.WorkerTypeID getWorkerTypeId() {
+		return workerTypeId;
 	}
 }

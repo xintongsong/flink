@@ -19,6 +19,7 @@
 package org.apache.flink.kubernetes.kubeclient.decorators;
 
 import org.apache.flink.kubernetes.utils.Constants;
+import org.apache.flink.runtime.resourcemanager.slotmanager.WorkerRequest;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -58,6 +59,10 @@ public class LabelBuilder {
 
 	public LabelBuilder withTaskManagerComponent() {
 		return this.withLabel(Constants.LABEL_COMPONENT_KEY, Constants.LABEL_COMPONENT_TASK_MANAGER);
+	}
+
+	public LabelBuilder withWorkerTypeId(WorkerRequest.WorkerTypeID workerTypeId) {
+		return this.withLabel(Constants.LABEL_WORKER_TYPE_ID_KEY, workerTypeId.toHexString());
 	}
 
 	public Map<String, String> toLabels() {

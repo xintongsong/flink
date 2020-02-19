@@ -28,15 +28,12 @@ import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
-import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.Test;
-
-import java.util.HashMap;
 
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
@@ -296,12 +293,9 @@ public class KubernetesUtilsTest extends TestLogger {
 			boolean hasLog4j,
 			String mainClassArgs) {
 
-		final ContaineredTaskManagerParameters containeredParams =
-			new ContaineredTaskManagerParameters(TASK_EXECUTOR_PROCESS_SPEC, new HashMap<>());
-
 		return KubernetesUtils.getTaskManagerStartCommand(
 			cfg,
-			containeredParams,
+			TASK_EXECUTOR_PROCESS_SPEC,
 			confDirInPod,
 			logDirInPod,
 			hasLogBack,

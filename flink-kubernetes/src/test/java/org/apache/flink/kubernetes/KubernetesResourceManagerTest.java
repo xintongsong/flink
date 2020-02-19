@@ -45,6 +45,7 @@ import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
+import org.apache.flink.runtime.resourcemanager.slotmanager.WorkerRequest;
 import org.apache.flink.runtime.resourcemanager.utils.MockResourceManagerRuntimeServices;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -79,6 +80,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import static junit.framework.TestCase.assertEquals;
+import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
@@ -184,7 +186,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 
 		final Map<String, String> labels = getCommonLabels();
 		labels.put(Constants.LABEL_COMPONENT_KEY, Constants.LABEL_COMPONENT_TASK_MANAGER);
-		assertEquals(labels, pod.getMetadata().getLabels());
+		labels.forEach((k, v) -> assertThat(pod.getMetadata().getLabels(), hasEntry(k, v)));
 
 		assertEquals(1, pod.getSpec().getContainers().size());
 		final Container tmContainer = pod.getSpec().getContainers().get(0);
@@ -265,7 +267,8 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 			new ArrayList<>(),
 			1024,
 			1,
-			new HashMap<>()));
+			new HashMap<>(),
+			new WorkerRequest.WorkerTypeID()));
 		final KubernetesClient client = getKubeClient();
 		assertEquals(1, client.pods().list().getItems().size());
 

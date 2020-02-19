@@ -46,6 +46,7 @@ public class Constants {
 	public static final String LABEL_COMPONENT_KEY = "component";
 	public static final String LABEL_COMPONENT_JOB_MANAGER = "jobmanager";
 	public static final String LABEL_COMPONENT_TASK_MANAGER = "taskmanager";
+	public static final String LABEL_WORKER_TYPE_ID_KEY = "worker-type-id";
 
 	// Use fixed port in kubernetes, it needs to be exposed.
 	public static final int BLOB_SERVER_PORT = 6124;

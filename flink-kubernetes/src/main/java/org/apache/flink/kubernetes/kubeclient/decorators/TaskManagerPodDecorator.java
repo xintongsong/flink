@@ -72,6 +72,7 @@ public class TaskManagerPodDecorator extends Decorator<Pod, KubernetesPod> {
 		final Map<String, String> labels = new LabelBuilder()
 			.withExist(pod.getMetadata().getLabels())
 			.withTaskManagerComponent()
+			.withWorkerTypeId(parameter.getWorkerTypeId())
 			.toLabels();
 
 		pod.getMetadata().setLabels(labels);

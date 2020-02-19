@@ -23,7 +23,6 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
-import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -168,7 +167,7 @@ public class KubernetesUtils {
 	 * Generates the shell command to start a task manager for kubernetes.
 	 *
 	 * @param flinkConfig The Flink configuration.
-	 * @param tmParams Parameters for the task manager.
+	 * @param taskExecutorProcessSpec Resource description of the task manager.
 	 * @param configDirectory The configuration directory for the flink-conf.yaml
 	 * @param logDirectory The log directory.
 	 * @param hasLogback Uses logback?
@@ -179,14 +178,13 @@ public class KubernetesUtils {
 	 */
 	public static String getTaskManagerStartCommand(
 			Configuration flinkConfig,
-			ContaineredTaskManagerParameters tmParams,
+			TaskExecutorProcessSpec taskExecutorProcessSpec,
 			String configDirectory,
 			String logDirectory,
 			boolean hasLogback,
 			boolean hasLog4j,
 			String mainClass,
 			@Nullable String mainArgs) {
-		final TaskExecutorProcessSpec taskExecutorProcessSpec = tmParams.getTaskExecutorProcessSpec();
 		final String jvmMemOpts = TaskExecutorProcessUtils.generateJvmParametersStr(taskExecutorProcessSpec);
 		String args = TaskExecutorProcessUtils.generateDynamicConfigsStr(taskExecutorProcessSpec);
 		if (mainArgs != null) {

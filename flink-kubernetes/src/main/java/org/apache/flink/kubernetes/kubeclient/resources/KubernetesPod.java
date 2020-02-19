@@ -19,6 +19,9 @@
 package org.apache.flink.kubernetes.kubeclient.resources;
 
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.kubernetes.utils.Constants;
+import org.apache.flink.runtime.resourcemanager.slotmanager.WorkerRequest;
+import org.apache.flink.util.Preconditions;
 
 import io.fabric8.kubernetes.api.model.Pod;
 
@@ -48,5 +51,12 @@ public class KubernetesPod extends KubernetesResource<Pod> {
 				.anyMatch(e -> e.getState() != null && e.getState().getTerminated() != null);
 		}
 		return false;
+	}
+
+	public WorkerRequest.WorkerTypeID getWorkerTypeId() {
+		String workerTypeIdLabel = Preconditions.checkNotNull(
+			this.getInternalResource().getMetadata().getLabels().get(Constants.LABEL_WORKER_TYPE_ID_KEY),
+			"Worker pod should always be associated with a '%s' label.", Constants.LABEL_WORKER_TYPE_ID_KEY);
+		return WorkerRequest.WorkerTypeID.fromHexString(workerTypeIdLabel);
 	}
 }

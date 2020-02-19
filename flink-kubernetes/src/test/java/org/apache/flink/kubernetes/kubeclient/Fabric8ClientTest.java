@@ -22,6 +22,7 @@ import org.apache.flink.client.deployment.ClusterSpecification;
 import org.apache.flink.kubernetes.KubernetesTestBase;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.utils.Constants;
+import org.apache.flink.runtime.resourcemanager.slotmanager.WorkerRequest;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.Container;
@@ -47,6 +48,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.configuration.GlobalConfiguration.FLINK_CONF_FILENAME;
+import static org.hamcrest.Matchers.hasEntry;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -209,7 +211,8 @@ public class Fabric8ClientTest extends KubernetesTestBase {
 			commands,
 			tmMem,
 			tmCpu,
-			env);
+			env,
+			new WorkerRequest.WorkerTypeID());
 		flinkKubeClient.createTaskManagerPod(parameter);
 
 		final List<Pod> pods = kubeClient.pods().list().getItems();
@@ -219,7 +222,7 @@ public class Fabric8ClientTest extends KubernetesTestBase {
 		assertEquals(podName, tmPod.getMetadata().getName());
 		final Map<String, String> labels = getCommonLabels();
 		labels.put(Constants.LABEL_COMPONENT_KEY, Constants.LABEL_COMPONENT_TASK_MANAGER);
-		assertEquals(labels, tmPod.getMetadata().getLabels());
+		labels.forEach((k, v) -> assertThat(tmPod.getMetadata().getLabels(), hasEntry(k, v)));
 
 		assertEquals(1, tmPod.getMetadata().getOwnerReferences().size());
 		assertEquals(MOCK_SERVICE_ID, tmPod.getMetadata().getOwnerReferences().get(0).getUid());
