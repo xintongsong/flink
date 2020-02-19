@@ -52,7 +52,8 @@ public enum StandaloneResourceManagerFactory implements ResourceManagerFactory<R
 		final ResourceManagerRuntimeServices resourceManagerRuntimeServices = ResourceManagerRuntimeServices.fromConfiguration(
 			resourceManagerRuntimeServicesConfiguration,
 			highAvailabilityServices,
-			rpcService.getScheduledExecutor());
+			rpcService.getScheduledExecutor(),
+			resourceManagerMetricGroup);
 
 		final Time standaloneClusterStartupPeriodTime = ConfigurationUtils.getStandaloneClusterStartupPeriodTime(configuration);
 

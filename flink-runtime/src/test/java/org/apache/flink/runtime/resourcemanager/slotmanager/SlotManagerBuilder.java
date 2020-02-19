@@ -21,6 +21,8 @@ package org.apache.flink.runtime.resourcemanager.slotmanager;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
+import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
+import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.testingUtils.TestingUtils;
 
 import javax.annotation.Nullable;
@@ -29,6 +31,7 @@ import javax.annotation.Nullable;
 public class SlotManagerBuilder {
 	private SlotMatchingStrategy slotMatchingStrategy;
 	private ScheduledExecutor scheduledExecutor;
+	private ResourceManagerMetricGroup resourceManagerMetricGroup;
 	private Time taskManagerRequestTimeout;
 	private Time slotRequestTimeout;
 	private Time taskManagerTimeout;
@@ -39,6 +42,7 @@ public class SlotManagerBuilder {
 	private SlotManagerBuilder() {
 		this.slotMatchingStrategy = AnyMatchingSlotMatchingStrategy.INSTANCE;
 		this.scheduledExecutor = TestingUtils.defaultScheduledExecutor();
+		this.resourceManagerMetricGroup = UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup();
 		this.taskManagerRequestTimeout = TestingUtils.infiniteTime();
 		this.slotRequestTimeout = TestingUtils.infiniteTime();
 		this.taskManagerTimeout = TestingUtils.infiniteTime();
@@ -91,10 +95,16 @@ public class SlotManagerBuilder {
 		return this;
 	}
 
+	public SlotManagerBuilder setResourceManagerMetricGroup(ResourceManagerMetricGroup resourceManagerMetricGroup) {
+		this.resourceManagerMetricGroup = resourceManagerMetricGroup;
+		return this;
+	}
+
 	public SlotManagerImpl build() {
 		return new SlotManagerImpl(
 			slotMatchingStrategy,
 			scheduledExecutor,
+			resourceManagerMetricGroup,
 			taskManagerRequestTimeout,
 			slotRequestTimeout,
 			taskManagerTimeout,

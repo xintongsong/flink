@@ -74,7 +74,8 @@ public class YarnResourceManagerFactory extends ActiveResourceManagerFactory<Yar
 		final ResourceManagerRuntimeServices rmRuntimeServices = ResourceManagerRuntimeServices.fromConfiguration(
 			rmServicesConfiguration,
 			highAvailabilityServices,
-			rpcService.getScheduledExecutor());
+			rpcService.getScheduledExecutor(),
+			resourceManagerMetricGroup);
 
 		return new YarnResourceManager(
 			rpcService,

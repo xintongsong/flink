@@ -20,6 +20,7 @@ package org.apache.flink.runtime.resourcemanager;
 
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
+import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.slotmanager.AnyMatchingSlotMatchingStrategy;
 import org.apache.flink.runtime.resourcemanager.slotmanager.LeastUtilizationSlotMatchingStrategy;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
@@ -54,9 +55,10 @@ public class ResourceManagerRuntimeServices {
 	public static ResourceManagerRuntimeServices fromConfiguration(
 			ResourceManagerRuntimeServicesConfiguration configuration,
 			HighAvailabilityServices highAvailabilityServices,
-			ScheduledExecutor scheduledExecutor) throws Exception {
+			ScheduledExecutor scheduledExecutor,
+			ResourceManagerMetricGroup resourceManagerMetricGroup) throws Exception {
 
-		final SlotManager slotManager = createSlotManager(configuration, scheduledExecutor);
+		final SlotManager slotManager = createSlotManager(configuration, scheduledExecutor, resourceManagerMetricGroup);
 
 		final JobLeaderIdService jobLeaderIdService = new JobLeaderIdService(
 			highAvailabilityServices,
@@ -66,7 +68,10 @@ public class ResourceManagerRuntimeServices {
 		return new ResourceManagerRuntimeServices(slotManager, jobLeaderIdService);
 	}
 
-	private static SlotManager createSlotManager(ResourceManagerRuntimeServicesConfiguration configuration, ScheduledExecutor scheduledExecutor) {
+	private static SlotManager createSlotManager(
+			ResourceManagerRuntimeServicesConfiguration configuration,
+			ScheduledExecutor scheduledExecutor,
+			ResourceManagerMetricGroup resourceManagerMetricGroup) {
 		final SlotManagerConfiguration slotManagerConfiguration = configuration.getSlotManagerConfiguration();
 
 		final SlotMatchingStrategy slotMatchingStrategy;
@@ -80,6 +85,7 @@ public class ResourceManagerRuntimeServices {
 		return new SlotManagerImpl(
 			slotMatchingStrategy,
 			scheduledExecutor,
+			resourceManagerMetricGroup,
 			slotManagerConfiguration.getTaskManagerRequestTimeout(),
 			slotManagerConfiguration.getSlotRequestTimeout(),
 			slotManagerConfiguration.getTaskManagerTimeout(),

@@ -29,6 +29,8 @@ import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.instance.InstanceID;
 import org.apache.flink.runtime.messages.Acknowledge;
+import org.apache.flink.runtime.metrics.MetricNames;
+import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
@@ -136,9 +138,12 @@ public class SlotManagerImpl implements SlotManager {
 	@Nullable
 	private final ResourceProfile slotResourceProfile;
 
+	private final ResourceManagerMetricGroup resourceManagerMetricGroup;
+
 	public SlotManagerImpl(
 			SlotMatchingStrategy slotMatchingStrategy,
 			ScheduledExecutor scheduledExecutor,
+			ResourceManagerMetricGroup resourceManagerMetricGroup,
 			Time taskManagerRequestTimeout,
 			Time slotRequestTimeout,
 			Time taskManagerTimeout,
@@ -148,6 +153,7 @@ public class SlotManagerImpl implements SlotManager {
 
 		this.slotMatchingStrategy = Preconditions.checkNotNull(slotMatchingStrategy);
 		this.scheduledExecutor = Preconditions.checkNotNull(scheduledExecutor);
+		this.resourceManagerMetricGroup = Preconditions.checkNotNull(resourceManagerMetricGroup);
 		this.taskManagerRequestTimeout = Preconditions.checkNotNull(taskManagerRequestTimeout);
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
@@ -252,6 +258,8 @@ public class SlotManagerImpl implements SlotManager {
 
 		started = true;
 
+		registerSlotMetrics();
+
 		taskManagerTimeoutCheck = scheduledExecutor.scheduleWithFixedDelay(
 			() -> mainThreadExecutor.execute(
 				() -> checkTaskManagerTimeouts()),
@@ -265,6 +273,15 @@ public class SlotManagerImpl implements SlotManager {
 			0L,
 			slotRequestTimeout.toMilliseconds(),
 			TimeUnit.MILLISECONDS);
+	}
+
+	private void registerSlotMetrics() {
+		resourceManagerMetricGroup.gauge(
+			MetricNames.TASK_SLOTS_AVAILABLE,
+			() -> (long) getNumberFreeSlots());
+		resourceManagerMetricGroup.gauge(
+			MetricNames.TASK_SLOTS_TOTAL,
+			() -> (long) getNumberRegisteredSlots());
 	}
 
 	/**

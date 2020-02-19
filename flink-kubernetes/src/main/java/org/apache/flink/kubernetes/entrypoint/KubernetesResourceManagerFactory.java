@@ -69,7 +69,8 @@ public class KubernetesResourceManagerFactory extends ActiveResourceManagerFacto
 		final ResourceManagerRuntimeServices rmRuntimeServices = ResourceManagerRuntimeServices.fromConfiguration(
 			rmServicesConfiguration,
 			highAvailabilityServices,
-			rpcService.getScheduledExecutor());
+			rpcService.getScheduledExecutor(),
+			resourceManagerMetricGroup);
 
 		return new KubernetesResourceManager(
 			rpcService,

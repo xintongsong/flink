@@ -78,7 +78,8 @@ public class MesosResourceManagerFactory extends ActiveResourceManagerFactory<Re
 		final ResourceManagerRuntimeServices rmRuntimeServices = ResourceManagerRuntimeServices.fromConfiguration(
 			rmServicesConfiguration,
 			highAvailabilityServices,
-			rpcService.getScheduledExecutor());
+			rpcService.getScheduledExecutor(),
+			resourceManagerMetricGroup);
 
 		final MesosTaskManagerParameters taskManagerParameters = MesosUtils.createTmParameters(configuration, LOG);
 		final ContainerSpecification taskManagerContainerSpec = MesosUtils.createContainerSpec(configuration);
