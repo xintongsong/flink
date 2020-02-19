@@ -2511,6 +2511,37 @@
               "freeSlots" : {
                 "type" : "integer"
               },
+              "totalResource" : {
+                "type" : "object",
+                "id" : "urn:jsonschema:org:apache:flink:runtime:rest:messages:ResourceProfileInfo",
+                "properties" : {
+                  "cpuCores" : {
+                    "type" : "number"
+                  },
+                  "taskHeapMemory" : {
+                    "type" : "integer"
+                  },
+                  "taskOffHeapMemory" : {
+                    "type" : "integer"
+                  },
+                  "managedMemory" : {
+                    "type" : "integer"
+                  },
+                  "networkMemory" : {
+                    "type" : "integer"
+                  },
+                  "extendedResources" : {
+                    "type" : "object",
+                    "additionalProperties" : {
+                      "type" : "number"
+                    }
+                  }
+                }
+              },
+              "freeResource" : {
+                "type" : "object",
+                "$ref" : "urn:jsonschema:org:apache:flink:runtime:rest:messages:ResourceProfileInfo"
+              },
               "hardware" : {
                 "type" : "object",
                 "id" : "urn:jsonschema:org:apache:flink:runtime:instance:HardwareDescription",
@@ -2597,6 +2628,37 @@
         },
         "freeSlots" : {
           "type" : "integer"
+        },
+        "totalResource" : {
+          "type" : "object",
+          "id" : "urn:jsonschema:org:apache:flink:runtime:rest:messages:ResourceProfileInfo",
+          "properties" : {
+            "cpuCores" : {
+              "type" : "number"
+            },
+            "taskHeapMemory" : {
+              "type" : "integer"
+            },
+            "taskOffHeapMemory" : {
+              "type" : "integer"
+            },
+            "managedMemory" : {
+              "type" : "integer"
+            },
+            "networkMemory" : {
+              "type" : "integer"
+            },
+            "extendedResources" : {
+              "type" : "object",
+              "additionalProperties" : {
+                "type" : "number"
+              }
+            }
+          }
+        },
+        "freeResource" : {
+          "type" : "object",
+          "$ref" : "urn:jsonschema:org:apache:flink:runtime:rest:messages:ResourceProfileInfo"
         },
         "hardware" : {
           "type" : "object",

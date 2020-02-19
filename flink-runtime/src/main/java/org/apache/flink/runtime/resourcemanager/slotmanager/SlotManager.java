@@ -20,6 +20,7 @@ package org.apache.flink.runtime.resourcemanager.slotmanager;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
+import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.instance.InstanceID;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
@@ -51,6 +52,14 @@ public interface SlotManager extends AutoCloseable {
 	int getNumberFreeSlots();
 
 	int getNumberFreeSlotsOf(InstanceID instanceId);
+
+	ResourceProfile getRegisteredResource();
+
+	ResourceProfile getRegisteredResourceOf(InstanceID instanceID);
+
+	ResourceProfile getFreeResource();
+
+	ResourceProfile getFreeResourceOf(InstanceID instanceID);
 
 	int getNumberPendingWorkers(@Nullable WorkerRequest.WorkerTypeID workerTypeId);
 

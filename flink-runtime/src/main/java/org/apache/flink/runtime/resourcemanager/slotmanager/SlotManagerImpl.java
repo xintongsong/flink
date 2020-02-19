@@ -218,6 +218,34 @@ public class SlotManagerImpl implements SlotManager {
 	}
 
 	@Override
+	public ResourceProfile getRegisteredResource() {
+		return getResourceFromNumSlots(getNumberRegisteredSlots());
+	}
+
+	@Override
+	public ResourceProfile getRegisteredResourceOf(InstanceID instanceID) {
+		return getResourceFromNumSlots(getNumberRegisteredSlotsOf(instanceID));
+	}
+
+	@Override
+	public ResourceProfile getFreeResource() {
+		return getResourceFromNumSlots(getNumberFreeSlots());
+	}
+
+	@Override
+	public ResourceProfile getFreeResourceOf(InstanceID instanceID) {
+		return getResourceFromNumSlots(getNumberFreeSlotsOf(instanceID));
+	}
+
+	private ResourceProfile getResourceFromNumSlots(int numSlots) {
+		if (numSlots < 0 || slotResourceProfile == null) {
+			return ResourceProfile.UNKNOWN;
+		} else {
+			return slotResourceProfile.multiply(numSlots);
+		}
+	}
+
+	@Override
 	public int getNumberPendingWorkers(@Nullable WorkerRequest.WorkerTypeID workerTypeId) {
 		return (int) Math.ceil((double) pendingSlots.size() / numSlotsPerWorker);
 	}
