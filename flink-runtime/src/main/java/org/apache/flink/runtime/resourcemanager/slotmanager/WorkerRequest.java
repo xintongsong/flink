@@ -61,5 +61,13 @@ public class WorkerRequest {
 		public WorkerTypeID() {
 			super();
 		}
+
+		private WorkerTypeID(AbstractID abstractID) {
+			super(abstractID);
+		}
+
+		public static WorkerTypeID fromHexString(String s) {
+			return new WorkerTypeID(AbstractID.fromHexString(s));
+		}
 	}
 }

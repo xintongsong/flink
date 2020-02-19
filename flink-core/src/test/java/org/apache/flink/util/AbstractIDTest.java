@@ -131,6 +131,13 @@ public class AbstractIDTest extends TestLogger {
 		}
 	}
 
+	@Test
+	public void testCreateFromString() {
+		final AbstractID origID = new AbstractID();
+		final AbstractID copyID = AbstractID.fromHexString(origID.toString());
+		assertEquals(origID, copyID);
+	}
+
 	private static void assertCompare(AbstractID a, AbstractID b, int signum) {
 		int cmpAB = a.compareTo(b);
 		int cmpBA = b.compareTo(a);

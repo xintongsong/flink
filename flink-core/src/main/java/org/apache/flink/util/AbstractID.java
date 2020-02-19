@@ -143,6 +143,13 @@ public class AbstractID implements Comparable<AbstractID>, java.io.Serializable 
 		return this.hexString;
 	}
 
+	public static AbstractID fromHexString(String s) {
+		final byte[] ba = StringUtils.hexStringToByte(s);
+		long lowerPart = byteArrayToLong(ba, 0);
+		long upperPart = byteArrayToLong(ba, SIZE_OF_LONG);
+		return new AbstractID(lowerPart, upperPart);
+	}
+
 	// --------------------------------------------------------------------------------------------
 	//  Standard Utilities
 	// --------------------------------------------------------------------------------------------

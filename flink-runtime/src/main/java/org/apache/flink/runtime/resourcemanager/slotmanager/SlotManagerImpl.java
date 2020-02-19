@@ -69,7 +69,7 @@ import java.util.concurrent.TimeoutException;
 public class SlotManagerImpl implements SlotManager {
 	private static final Logger LOG = LoggerFactory.getLogger(SlotManagerImpl.class);
 
-	private static final WorkerRequest.WorkerTypeID WORKER_TYPE_ID = new WorkerRequest.WorkerTypeID(123L, 456L);
+	private static final WorkerRequest.WorkerTypeID WORKER_TYPE_ID = new WorkerRequest.WorkerTypeID();
 
 	/** Scheduled executor for timeouts. */
 	private final ScheduledExecutor scheduledExecutor;
