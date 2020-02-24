@@ -18,8 +18,7 @@
 
 package org.apache.flink.runtime.rpc.akka;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.AkkaOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
@@ -31,6 +30,8 @@ import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.Preconditions;
 
 import akka.actor.ActorSystem;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,10 +72,10 @@ public class AkkaRpcServiceUtils {
 	/**
 	 * Utility method to create RPC service from configuration and hostname, port.
 	 *
-	 * @param hostname   The hostname/address that describes the TaskManager's data location.
-	 * @param portRangeDefinition   The port range to start TaskManager on.
-	 * @param configuration                 The configuration for the TaskManager.
-	 * @return   The rpc service which is used to start and connect to the TaskManager RpcEndpoint .
+	 * @param hostname   The hostname/address that the target RPC service is listening.
+	 * @param portRangeDefinition   The port range where the target RPC service is listening.
+	 * @param configuration                 The configuration for the RPC service.
+	 * @return   The rpc service which is used to start and connect to the RpcEndpoint.
 	 * @throws IOException      Thrown, if the actor system can not bind to the address
 	 * @throws Exception      Thrown is some other error occurs while creating akka actor system
 	 */
@@ -89,13 +90,14 @@ public class AkkaRpcServiceUtils {
 	/**
 	 * Utility method to create RPC service from configuration and hostname, port.
 	 *
-	 * @param hostname   The hostname/address that describes the TaskManager's data location.
-	 * @param port           If true, the TaskManager will not initiate the TCP network stack.
-	 * @param configuration                 The configuration for the TaskManager.
-	 * @return   The rpc service which is used to start and connect to the TaskManager RpcEndpoint .
+	 * @param hostname   The hostname/address that the target RPC service is listening.
+	 * @param port           The port where the target RPC service is listening.
+	 * @param configuration                 The configuration for the RPC service.
+	 * @return   The rpc service which is used to start and connect to the RpcEndpoint.
 	 * @throws IOException      Thrown, if the actor system can not bind to the address
 	 * @throws Exception      Thrown is some other error occurs while creating akka actor system
 	 */
+	@VisibleForTesting
 	public static RpcService createRpcService(
 			String hostname,
 			int port,
@@ -107,12 +109,12 @@ public class AkkaRpcServiceUtils {
 	/**
 	 * Utility method to create RPC service from configuration and hostname, port.
 	 *
-	 * @param hostname The hostname/address that describes the TaskManager's data location.
-	 * @param portRangeDefinition The port range to start TaskManager on.
-	 * @param configuration The configuration for the TaskManager.
+	 * @param hostname The hostname/address that the target RPC service is listening.
+	 * @param portRangeDefinition The port range where the target RPC service is listening.
+	 * @param configuration The configuration for the RPC service.
 	 * @param actorSystemName The actor system name of the RpcService.
 	 * @param actorSystemExecutorConfiguration The configuration of the executor of the actor system.
-	 * @return The rpc service which is used to start and connect to the TaskManager RpcEndpoint .
+	 * @return The rpc service which is used to start and connect to the RpcEndpoint.
 	 * @throws IOException Thrown, if the actor system can not bind to the address
 	 * @throws Exception Thrown is some other error occurs while creating akka actor system
 	 */
