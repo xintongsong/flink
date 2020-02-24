@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -63,6 +64,26 @@ public class AkkaRpcServiceUtils {
 	// ------------------------------------------------------------------------
 	//  RPC instantiation
 	// ------------------------------------------------------------------------
+
+	public static AkkaRpcService createRemoteRpcService(
+		Configuration configuration,
+		@Nullable String externalAddress,
+		String externalPortRange,
+		@Nullable String bindAddress,
+		@Nullable Integer bindPort) throws Exception {
+		final AkkaRpcServiceBuilder akkaRpcServiceBuilder =
+			AkkaRpcServiceUtils.remoteServiceBuilder(configuration, externalAddress, externalPortRange);
+
+		if (bindAddress != null) {
+			akkaRpcServiceBuilder.withBindAddress(bindAddress);
+		}
+
+		if (bindPort != null) {
+			akkaRpcServiceBuilder.withBindPort(bindPort);
+		}
+
+		return akkaRpcServiceBuilder.createAndStart();
+	}
 
 	public static AkkaRpcServiceBuilder remoteServiceBuilder(Configuration configuration, @Nullable String externalAddress, String externalPortRange) {
 		return new AkkaRpcServiceBuilder(configuration, LOG, externalAddress, externalPortRange);

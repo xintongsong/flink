@@ -79,6 +79,25 @@ public class JobManagerOptions {
 			" leader from potentially multiple standby JobManagers.");
 
 	/**
+	 * The local address that the job manager binds to.
+	 */
+	public static final ConfigOption<String> RPC_BIND_ADDRESS =
+		key("jobmanager.rpc.bind-address")
+			.stringType()
+			.noDefaultValue()
+			.withDescription("The local address that the job manager binds to. If not configured, '0.0.0.0' will be used.");
+
+	/**
+	 * The local port that the job manager binds to.
+	 */
+	public static final ConfigOption<Integer> RPC_BIND_PORT =
+		key("jobmanager.rpc.bind-port")
+			.intType()
+			.noDefaultValue()
+			.withDescription("The local port that the job manager binds to. If not configured, the external port will" +
+				" be used (configured by '" + PORT.key() + "').");
+
+	/**
 	 * JVM heap size for the JobManager with memory size.
 	 */
 	@Documentation.Section(Documentation.Sections.ALL_JOB_MANAGER)

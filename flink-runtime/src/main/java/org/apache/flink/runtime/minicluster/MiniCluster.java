@@ -271,8 +271,8 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 					// start a new service per component, possibly with custom bind addresses
 					final String jobManagerBindAddress = miniClusterConfiguration.getJobManagerBindAddress();
 					final String taskManagerBindAddress = miniClusterConfiguration.getTaskManagerBindAddress();
-					final String jobManagerBindPort = miniClusterConfiguration.getJobManagerBindPortRange();
-					final String taskManagerBindPort = miniClusterConfiguration.getTaskManagerBindPortRange();
+					final int jobManagerBindPort = miniClusterConfiguration.getJobManagerBindPort();
+					final int taskManagerBindPort = miniClusterConfiguration.getTaskManagerBindPort();
 
 					dispatcherResourceManagreComponentRpcServiceFactory =
 						new DedicatedRpcServiceFactory(configuration, jobManagerBindAddress, jobManagerBindPort);
@@ -281,7 +281,7 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 
 					// we always need the 'commonRpcService' for auxiliary calls
 					// bind to the JobManager address with port 0
-					commonRpcService = createRemoteRpcService(configuration, jobManagerBindAddress, "0");
+					commonRpcService = createRemoteRpcService(configuration, jobManagerBindAddress, 0);
 				}
 
 				RpcService metricQueryServiceRpcService = MetricUtils.startMetricsRpcService(
@@ -719,14 +719,16 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 	 *
 	 * @param configuration Flink configuration.
 	 * @param bindAddress The address to bind the RPC service to.
-	 * @param bindPortRange The port range to bind the RPC service to.
+	 * @param bindPort The port range to bind the RPC service to.
 	 * @return The instantiated RPC service
 	 */
 	protected RpcService createRemoteRpcService(
 			Configuration configuration,
 			String bindAddress,
-			String bindPortRange) throws Exception {
-		return AkkaRpcServiceUtils.remoteServiceBuilder(configuration, bindAddress, bindPortRange)
+			int bindPort) throws Exception {
+		return AkkaRpcServiceUtils.remoteServiceBuilder(configuration, bindAddress, String.valueOf(bindPort))
+			.withBindAddress(bindAddress)
+			.withBindPort(bindPort)
 			.withCustomConfig(AkkaUtils.testDispatcherConfig())
 			.createAndStart();
 	}
@@ -903,17 +905,17 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 
 		private final Configuration configuration;
 		private final String bindAddress;
-		private final String bindPortRange;
+		private final int bindPort;
 
-		DedicatedRpcServiceFactory(Configuration configuration, String bindAddress, String bindPortRange) {
+		DedicatedRpcServiceFactory(Configuration configuration, String bindAddress, int bindPort) {
 			this.configuration = configuration;
 			this.bindAddress = bindAddress;
-			this.bindPortRange = bindPortRange;
+			this.bindPort = bindPort;
 		}
 
 		@Override
 		public RpcService createRpcService() throws Exception {
-			final RpcService rpcService = MiniCluster.this.createRemoteRpcService(configuration, bindAddress, bindPortRange);
+			final RpcService rpcService = MiniCluster.this.createRemoteRpcService(configuration, bindAddress, bindPort);
 
 			synchronized (lock) {
 				rpcServices.add(rpcService);

@@ -39,6 +39,18 @@
             <td>The config parameter defining the network address to connect to for communication with the job manager. This value is only interpreted in setups where a single JobManager with static name or address exists (simple standalone setups, or container setups with dynamic service name resolution). It is not used in many high-availability setups, when a leader-election service (like ZooKeeper) is used to elect and discover the JobManager leader from potentially multiple standby JobManagers.</td>
         </tr>
         <tr>
+            <td><h5>jobmanager.rpc.bind-address</h5></td>
+            <td style="word-wrap: break-word;">(none)</td>
+            <td>String</td>
+            <td>The local address that the job manager binds to. If not configured, '0.0.0.0' will be used.</td>
+        </tr>
+        <tr>
+            <td><h5>jobmanager.rpc.bind-port</h5></td>
+            <td style="word-wrap: break-word;">(none)</td>
+            <td>Integer</td>
+            <td>The local port that the job manager binds to. If not configured, the external port will be used (configured by 'jobmanager.rpc.port').</td>
+        </tr>
+        <tr>
             <td><h5>jobmanager.rpc.port</h5></td>
             <td style="word-wrap: break-word;">6123</td>
             <td>Integer</td>

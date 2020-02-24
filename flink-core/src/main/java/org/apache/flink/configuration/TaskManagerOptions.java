@@ -102,9 +102,8 @@ public class TaskManagerOptions {
 		key("taskmanager.host")
 			.stringType()
 			.noDefaultValue()
-			.withDescription("The address of the network interface that the TaskManager binds to." +
-				" This option can be used to define explicitly a binding address. Because" +
-				" different TaskManagers need different values for this option, usually it is specified in an" +
+			.withDescription("The external address of the network interface where the TaskManager is exposed." +
+				" Because different TaskManagers need different values for this option, usually it is specified in an" +
 				" additional non-shared TaskManager-specific config file.");
 
 	/**
@@ -116,9 +115,28 @@ public class TaskManagerOptions {
 		key("taskmanager.rpc.port")
 			.stringType()
 			.defaultValue("0")
-			.withDescription("The task manager’s IPC port. Accepts a list of ports (“50100,50101”), ranges" +
-				" (“50100-50200”) or a combination of both. It is recommended to set a range of ports to avoid" +
-				" collisions when multiple TaskManagers are running on the same machine.");
+			.withDescription("The external RPC port where the TaskManager is exposed. Accepts a list of ports" +
+				" (“50100,50101”), ranges (“50100-50200”) or a combination of both. It is recommended to set a" +
+				" range of ports to avoid collisions when multiple TaskManagers are running on the same machine.");
+
+	/**
+	 * The local address that the task manager binds to.
+	 */
+	public static final ConfigOption<String> RPC_BIND_ADDRESS =
+		key("taskmanager.rpc.bind-address")
+			.stringType()
+			.noDefaultValue()
+			.withDescription("The local address that the task manager binds to. If not configured, '0.0.0.0' will be used.");
+
+	/**
+	 * The local port that the task manager binds to.
+	 */
+	public static final ConfigOption<Integer> RPC_BIND_PORT =
+		key("taskmanager.rpc.bind-port")
+			.intType()
+			.noDefaultValue()
+			.withDescription("The local port that the task manager binds to. If not configured, the external port will" +
+				" be used (configured by '" + RPC_PORT.key() + "', if multiple ports is configured the chosen one is used).");
 
 	/**
 	 * The initial registration backoff between two consecutive registration attempts. The backoff

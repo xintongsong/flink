@@ -102,21 +102,21 @@ public class MiniClusterConfiguration {
 	public String getJobManagerBindAddress() {
 		return commonBindAddress != null ?
 				commonBindAddress :
-				configuration.getString(JobManagerOptions.ADDRESS, "localhost");
+				configuration.getString(JobManagerOptions.RPC_BIND_ADDRESS, "localhost");
 	}
 
 	public String getTaskManagerBindAddress() {
 		return commonBindAddress != null ?
 				commonBindAddress :
-				configuration.getString(TaskManagerOptions.HOST, "localhost");
+				configuration.getString(TaskManagerOptions.RPC_BIND_ADDRESS, "localhost");
 	}
 
-	public String getJobManagerBindPortRange() {
-		return String.valueOf(configuration.getInteger(JobManagerOptions.PORT, 0));
+	public int getJobManagerBindPort() {
+		return configuration.getInteger(JobManagerOptions.RPC_BIND_PORT, 0);
 	}
 
-	public String getTaskManagerBindPortRange() {
-		return configuration.getString(TaskManagerOptions.RPC_PORT);
+	public int getTaskManagerBindPort() {
+		return configuration.getInteger(TaskManagerOptions.RPC_BIND_PORT, 0);
 	}
 
 	public Time getRpcTimeout() {
