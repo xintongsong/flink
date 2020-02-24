@@ -138,7 +138,7 @@ public class TaskManagerRunnerConfigurationTest extends TestLogger {
 			TaskManagerRunner.createRpcService(config, highAvailabilityServices);
 			fail("Should fail because -1 is not a valid port range");
 		} catch (final IllegalArgumentException e) {
-			assertThat(e.getMessage(),  containsString("Invalid port range definition: -1"));
+			assertThat(e.getMessage(),  containsString("Invalid external port range definition: -1"));
 		} finally {
 			highAvailabilityServices.closeAndCleanupAllData();
 		}

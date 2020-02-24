@@ -41,7 +41,6 @@ import org.apache.commons.cli.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.File;
@@ -84,21 +83,21 @@ public class BootstrapTools {
 	/**
 	 * Starts an ActorSystem with the given configuration listening at the address/ports.
 	 * @param configuration The Flink configuration
-	 * @param listeningAddress The address to listen at.
-	 * @param portRangeDefinition The port range to choose a port from.
+	 * @param externalAddress The external address to access the ActorSystem.
+	 * @param externalPortRange The choosing range of the external port to access the ActorSystem.
 	 * @param logger The logger to output log information.
 	 * @return The ActorSystem which has been started
 	 * @throws Exception Thrown when actor system cannot be started in specified port range
 	 */
 	public static ActorSystem startActorSystem(
 		Configuration configuration,
-		String listeningAddress,
-		String portRangeDefinition,
+		String externalAddress,
+		String externalPortRange,
 		Logger logger) throws Exception {
 		return startActorSystem(
 			configuration,
-			listeningAddress,
-			portRangeDefinition,
+			externalAddress,
+			externalPortRange,
 			logger,
 			ForkJoinExecutorConfiguration.fromConfiguration(configuration));
 	}
@@ -107,8 +106,8 @@ public class BootstrapTools {
 	 * Starts an ActorSystem with the given configuration listening at the address/ports.
 	 *
 	 * @param configuration The Flink configuration
-	 * @param listeningAddress The address to listen at.
-	 * @param portRangeDefinition The port range to choose a port from.
+	 * @param externalAddress The external address to access the ActorSystem.
+	 * @param externalPortRange The choosing range of the external port to access the ActorSystem.
 	 * @param logger The logger to output log information.
 	 * @param actorSystemExecutorConfiguration configuration for the ActorSystem's underlying executor
 	 * @return The ActorSystem which has been started
@@ -116,15 +115,15 @@ public class BootstrapTools {
 	 */
 	public static ActorSystem startActorSystem(
 			Configuration configuration,
-			String listeningAddress,
-			String portRangeDefinition,
+			String externalAddress,
+			String externalPortRange,
 			Logger logger,
-			@Nonnull ActorSystemExecutorConfiguration actorSystemExecutorConfiguration) throws Exception {
+			ActorSystemExecutorConfiguration actorSystemExecutorConfiguration) throws Exception {
 		return startActorSystem(
 			configuration,
 			AkkaUtils.getFlinkActorSystemName(),
-			listeningAddress,
-			portRangeDefinition,
+			externalAddress,
+			externalPortRange,
 			logger,
 			actorSystemExecutorConfiguration);
 	}
@@ -134,8 +133,8 @@ public class BootstrapTools {
 	 *
 	 * @param configuration The Flink configuration
 	 * @param actorSystemName Name of the started {@link ActorSystem}
-	 * @param listeningAddress The address to listen at.
-	 * @param portRangeDefinition The port range to choose a port from.
+	 * @param externalAddress The external address to access the ActorSystem.
+	 * @param externalPortRange The choosing range of the external port to access the ActorSystem.
 	 * @param logger The logger to output log information.
 	 * @param actorSystemExecutorConfiguration configuration for the ActorSystem's underlying executor
 	 * @return The ActorSystem which has been started
@@ -144,28 +143,28 @@ public class BootstrapTools {
 	public static ActorSystem startActorSystem(
 			Configuration configuration,
 			String actorSystemName,
-			String listeningAddress,
-			String portRangeDefinition,
+			String externalAddress,
+			String externalPortRange,
 			Logger logger,
-			@Nonnull ActorSystemExecutorConfiguration actorSystemExecutorConfiguration) throws Exception {
+			ActorSystemExecutorConfiguration actorSystemExecutorConfiguration) throws Exception {
 
 		// parse port range definition and create port iterator
 		Iterator<Integer> portsIterator;
 		try {
-			portsIterator = NetUtils.getPortRangeFromString(portRangeDefinition);
+			portsIterator = NetUtils.getPortRangeFromString(externalPortRange);
 		} catch (Exception e) {
-			throw new IllegalArgumentException("Invalid port range definition: " + portRangeDefinition);
+			throw new IllegalArgumentException("Invalid external port range definition: " + externalPortRange);
 		}
 
 		while (portsIterator.hasNext()) {
-			final int port = portsIterator.next();
+			final int externalPort = portsIterator.next();
 
 			try {
 				return startActorSystem(
 					configuration,
 					actorSystemName,
-					listeningAddress,
-					port,
+					externalAddress,
+					externalPort,
 					logger,
 					actorSystemExecutorConfiguration);
 			}
@@ -180,29 +179,29 @@ public class BootstrapTools {
 		}
 
 		// if we come here, we have exhausted the port range
-		throw new BindException("Could not start actor system on any port in port range "
-			+ portRangeDefinition);
+		throw new BindException("Could not start actor system on any port in external port range "
+			+ externalPortRange);
 	}
 
 	/**
 	 * Starts an Actor System at a specific port.
 	 *
 	 * @param configuration The Flink configuration.
-	 * @param listeningAddress The address to listen at.
-	 * @param listeningPort The port to listen at.
+	 * @param externalAddress The external address to access the ActorSystem.
+	 * @param externalPort The external port to access the ActorSystem.
 	 * @param logger the logger to output log information.
 	 * @return The ActorSystem which has been started.
 	 * @throws Exception
 	 */
 	public static ActorSystem startActorSystem(
 		Configuration configuration,
-		String listeningAddress,
-		int listeningPort,
+		String externalAddress,
+		int externalPort,
 		Logger logger) throws Exception {
 		return startActorSystem(
 			configuration,
-			listeningAddress,
-			listeningPort,
+			externalAddress,
+			externalPort,
 			logger,
 			ForkJoinExecutorConfiguration.fromConfiguration(configuration));
 	}
@@ -210,8 +209,8 @@ public class BootstrapTools {
 	/**
 	 * Starts an Actor System at a specific port.
 	 * @param configuration The Flink configuration.
-	 * @param listeningAddress The address to listen at.
-	 * @param listeningPort The port to listen at.
+	 * @param externalAddress The external address to access the ActorSystem.
+	 * @param externalPort The external port to access the ActorSystem.
 	 * @param logger the logger to output log information.
 	 * @param actorSystemExecutorConfiguration configuration for the ActorSystem's underlying executor
 	 * @return The ActorSystem which has been started.
@@ -219,15 +218,15 @@ public class BootstrapTools {
 	 */
 	public static ActorSystem startActorSystem(
 				Configuration configuration,
-				String listeningAddress,
-				int listeningPort,
+				String externalAddress,
+				int externalPort,
 				Logger logger,
 				ActorSystemExecutorConfiguration actorSystemExecutorConfiguration) throws Exception {
 		return startActorSystem(
 			configuration,
 			AkkaUtils.getFlinkActorSystemName(),
-			listeningAddress,
-			listeningPort,
+			externalAddress,
+			externalPort,
 			logger,
 			actorSystemExecutorConfiguration);
 	}
@@ -236,8 +235,8 @@ public class BootstrapTools {
 	 * Starts an Actor System at a specific port.
 	 * @param configuration The Flink configuration.
 	 * @param actorSystemName Name of the started {@link ActorSystem}
-	 * @param listeningAddress The address to listen at.
-	 * @param listeningPort The port to listen at.
+	 * @param externalAddress The external address to access the ActorSystem.
+	 * @param externalPort The external port to access the ActorSystem.
 	 * @param logger the logger to output log information.
 	 * @param actorSystemExecutorConfiguration configuration for the ActorSystem's underlying executor
 	 * @return The ActorSystem which has been started.
@@ -246,18 +245,18 @@ public class BootstrapTools {
 	public static ActorSystem startActorSystem(
 		Configuration configuration,
 		String actorSystemName,
-		String listeningAddress,
-		int listeningPort,
+		String externalAddress,
+		int externalPort,
 		Logger logger,
 		ActorSystemExecutorConfiguration actorSystemExecutorConfiguration) throws Exception {
 
-		String hostPortUrl = NetUtils.unresolvedHostAndPortToNormalizedString(listeningAddress, listeningPort);
+		String hostPortUrl = NetUtils.unresolvedHostAndPortToNormalizedString(externalAddress, externalPort);
 		logger.info("Trying to start actor system at {}", hostPortUrl);
 
 		try {
 			Config akkaConfig = AkkaUtils.getAkkaConfig(
 				configuration,
-				new Some<>(new Tuple2<>(listeningAddress, listeningPort)),
+				new Some<>(new Tuple2<>(externalAddress, externalPort)),
 				actorSystemExecutorConfiguration.getAkkaConfig());
 
 			logger.debug("Using akka configuration\n {}", akkaConfig);
