@@ -21,23 +21,18 @@ package org.apache.flink.runtime.rpc.akka;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.AkkaOptions;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServicesUtils;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServicesUtils.AddressResolution;
 import org.apache.flink.runtime.net.SSLUtils;
-import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.Preconditions;
 
-import akka.actor.ActorSystem;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-
-import java.io.IOException;
+import javax.annotation.Nullable;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -69,76 +64,17 @@ public class AkkaRpcServiceUtils {
 	//  RPC instantiation
 	// ------------------------------------------------------------------------
 
-	/**
-	 * Utility method to create RPC service from configuration and hostname, port.
-	 *
-	 * @param hostname   The hostname/address that the target RPC service is listening.
-	 * @param portRangeDefinition   The port range where the target RPC service is listening.
-	 * @param configuration                 The configuration for the RPC service.
-	 * @return   The rpc service which is used to start and connect to the RpcEndpoint.
-	 * @throws IOException      Thrown, if the actor system can not bind to the address
-	 * @throws Exception      Thrown is some other error occurs while creating akka actor system
-	 */
-	public static RpcService createRpcService(
-			String hostname,
-			String portRangeDefinition,
-			Configuration configuration) throws Exception {
-		final ActorSystem actorSystem = BootstrapTools.startActorSystem(configuration, hostname, portRangeDefinition, LOG);
-		return instantiateAkkaRpcService(configuration, actorSystem);
+	public static AkkaRpcServiceBuilder remoteServiceBuilder(Configuration configuration, @Nullable String externalAddress, String externalPortRange) {
+		return new AkkaRpcServiceBuilder(configuration, LOG, externalAddress, externalPortRange);
 	}
 
-	/**
-	 * Utility method to create RPC service from configuration and hostname, port.
-	 *
-	 * @param hostname   The hostname/address that the target RPC service is listening.
-	 * @param port           The port where the target RPC service is listening.
-	 * @param configuration                 The configuration for the RPC service.
-	 * @return   The rpc service which is used to start and connect to the RpcEndpoint.
-	 * @throws IOException      Thrown, if the actor system can not bind to the address
-	 * @throws Exception      Thrown is some other error occurs while creating akka actor system
-	 */
 	@VisibleForTesting
-	public static RpcService createRpcService(
-			String hostname,
-			int port,
-			Configuration configuration) throws Exception {
-		final ActorSystem actorSystem = BootstrapTools.startActorSystem(configuration, hostname, port, LOG);
-		return instantiateAkkaRpcService(configuration, actorSystem);
+	public static AkkaRpcServiceBuilder remoteServiceBuilder(Configuration configuration, @Nullable String externalAddress, int externalPort) {
+		return remoteServiceBuilder(configuration, externalAddress, String.valueOf(externalPort));
 	}
 
-	/**
-	 * Utility method to create RPC service from configuration and hostname, port.
-	 *
-	 * @param hostname The hostname/address that the target RPC service is listening.
-	 * @param portRangeDefinition The port range where the target RPC service is listening.
-	 * @param configuration The configuration for the RPC service.
-	 * @param actorSystemName The actor system name of the RpcService.
-	 * @param actorSystemExecutorConfiguration The configuration of the executor of the actor system.
-	 * @return The rpc service which is used to start and connect to the RpcEndpoint.
-	 * @throws IOException Thrown, if the actor system can not bind to the address
-	 * @throws Exception Thrown is some other error occurs while creating akka actor system
-	 */
-	public static RpcService createRpcService(
-		String hostname,
-		String portRangeDefinition,
-		Configuration configuration,
-		String actorSystemName,
-		@Nonnull BootstrapTools.ActorSystemExecutorConfiguration actorSystemExecutorConfiguration) throws Exception {
-
-		final ActorSystem actorSystem = BootstrapTools.startActorSystem(
-			configuration,
-			actorSystemName,
-			hostname,
-			portRangeDefinition,
-			LOG,
-			actorSystemExecutorConfiguration);
-
-		return instantiateAkkaRpcService(configuration, actorSystem);
-	}
-
-	@Nonnull
-	private static RpcService instantiateAkkaRpcService(Configuration configuration, ActorSystem actorSystem) {
-		return new AkkaRpcService(actorSystem, AkkaRpcServiceConfiguration.fromConfiguration(configuration));
+	public static AkkaRpcServiceBuilder localServiceBuilder(Configuration configuration) {
+		return new AkkaRpcServiceBuilder(configuration, LOG);
 	}
 
 	// ------------------------------------------------------------------------
