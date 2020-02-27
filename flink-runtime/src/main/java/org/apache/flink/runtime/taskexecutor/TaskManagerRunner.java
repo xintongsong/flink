@@ -351,7 +351,8 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 
 		LOG.info("Starting TaskManager with ResourceID: {}", resourceID);
 
-		InetAddress remoteAddress = InetAddress.getByName(rpcService.getAddress());
+		String bindAddr = configuration.getString(TaskManagerOptions.RPC_BIND_ADDRESS);
+		InetAddress remoteAddress = InetAddress.getByName(bindAddr == null ? rpcService.getAddress() : bindAddr);
 
 		final TaskExecutorResourceSpec taskExecutorResourceSpec = TaskExecutorResourceUtils.resourceSpecFromConfig(configuration);
 
