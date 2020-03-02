@@ -94,24 +94,44 @@ public class MiniClusterConfiguration {
 		return numTaskManagers;
 	}
 
+	public String getJobManagerExternalAddress() {
+		return commonBindAddress != null ?
+			commonBindAddress :
+			configuration.getString(JobManagerOptions.ADDRESS, "localhost");
+	}
+
+	public String getTaskManagerExternalAddress() {
+		return commonBindAddress != null ?
+			commonBindAddress :
+			configuration.getString(TaskManagerOptions.HOST, "localhost");
+	}
+
+	public String getJobManagerExternalPortRange() {
+		return String.valueOf(configuration.getInteger(JobManagerOptions.PORT, 0));
+	}
+
+	public String getTaskManagerExternalPortRange() {
+		return configuration.getString(TaskManagerOptions.RPC_PORT);
+	}
+
 	public String getJobManagerBindAddress() {
 		return commonBindAddress != null ?
 				commonBindAddress :
-				configuration.getString(JobManagerOptions.ADDRESS, "localhost");
+				configuration.getString(JobManagerOptions.BIND_HOST, "localhost");
 	}
 
 	public String getTaskManagerBindAddress() {
 		return commonBindAddress != null ?
 				commonBindAddress :
-				configuration.getString(TaskManagerOptions.HOST, "localhost");
+				configuration.getString(TaskManagerOptions.BIND_HOST, "localhost");
 	}
 
-	public String getJobManagerBindPortRange() {
-		return String.valueOf(configuration.getInteger(JobManagerOptions.PORT, 0));
+	public int getJobManagerBindPort() {
+		return configuration.getInteger(JobManagerOptions.RPC_BIND_PORT, 0);
 	}
 
-	public String getTaskManagerBindPortRange() {
-		return configuration.getString(TaskManagerOptions.RPC_PORT);
+	public int getTaskManagerBindPort() {
+		return configuration.getInteger(TaskManagerOptions.RPC_BIND_PORT, 0);
 	}
 
 	public Time getRpcTimeout() {
