@@ -23,6 +23,8 @@ import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.registration.RetryingRegistrationConfiguration;
@@ -46,7 +48,11 @@ public class TaskManagerServicesConfiguration {
 
 	private final ResourceID resourceID;
 
-	private final InetAddress taskManagerAddress;
+	private final InetAddress externalAddress;
+
+	private final InetAddress bindAddress;
+
+	private final int externalDataPort;
 
 	private final boolean localCommunicationOnly;
 
@@ -74,7 +80,9 @@ public class TaskManagerServicesConfiguration {
 	public TaskManagerServicesConfiguration(
 			Configuration configuration,
 			ResourceID resourceID,
-			InetAddress taskManagerAddress,
+			InetAddress externalAddress,
+			InetAddress bindAddress,
+			int externalDataPort,
 			boolean localCommunicationOnly,
 			String[] tmpDirPaths,
 			String[] localRecoveryStateRootDirectories,
@@ -89,7 +97,9 @@ public class TaskManagerServicesConfiguration {
 		this.configuration = checkNotNull(configuration);
 		this.resourceID = checkNotNull(resourceID);
 
-		this.taskManagerAddress = checkNotNull(taskManagerAddress);
+		this.externalAddress = checkNotNull(externalAddress);
+		this.bindAddress = checkNotNull(bindAddress);
+		this.externalDataPort = externalDataPort;
 		this.localCommunicationOnly = localCommunicationOnly;
 		this.tmpDirPaths = checkNotNull(tmpDirPaths);
 		this.localRecoveryStateRootDirectories = checkNotNull(localRecoveryStateRootDirectories);
@@ -121,8 +131,16 @@ public class TaskManagerServicesConfiguration {
 		return resourceID;
 	}
 
-	InetAddress getTaskManagerAddress() {
-		return taskManagerAddress;
+	InetAddress getExternalAddress() {
+		return externalAddress;
+	}
+
+	InetAddress getBindAddress() {
+		return bindAddress;
+	}
+
+	int getExternalDataPort() {
+		return externalDataPort;
 	}
 
 	boolean isLocalCommunicationOnly() {
@@ -188,7 +206,7 @@ public class TaskManagerServicesConfiguration {
 	 *
 	 * @param configuration The configuration.
 	 * @param resourceID resource ID of the task manager
-	 * @param remoteAddress identifying the IP address under which the TaskManager will be accessible
+	 * @param externalAddress identifying the IP address under which the TaskManager will be accessible
 	 * @param localCommunicationOnly True if only local communication is possible.
 	 *                               Use only in cases where only one task manager runs.
 	 *
@@ -197,9 +215,9 @@ public class TaskManagerServicesConfiguration {
 	public static TaskManagerServicesConfiguration fromConfiguration(
 			Configuration configuration,
 			ResourceID resourceID,
-			InetAddress remoteAddress,
+			InetAddress externalAddress,
 			boolean localCommunicationOnly,
-			TaskExecutorResourceSpec taskExecutorResourceSpec) {
+			TaskExecutorResourceSpec taskExecutorResourceSpec) throws Exception {
 		final String[] tmpDirs = ConfigurationUtils.parseTempDirectories(configuration);
 		String[] localStateRootDir = ConfigurationUtils.parseLocalStateDirectories(configuration);
 		if (localStateRootDir.length == 0) {
@@ -215,10 +233,17 @@ public class TaskManagerServicesConfiguration {
 
 		final RetryingRegistrationConfiguration retryingRegistrationConfiguration = RetryingRegistrationConfiguration.fromConfiguration(configuration);
 
+		final int externalDataPort = configuration.getInteger(NettyShuffleEnvironmentOptions.DATA_PORT);
+
+		String bindAddr = configuration.getString(TaskManagerOptions.BIND_HOST);
+		InetAddress bindAddress = bindAddr == null ? externalAddress : InetAddress.getByName(bindAddr);
+
 		return new TaskManagerServicesConfiguration(
 			configuration,
 			resourceID,
-			remoteAddress,
+			externalAddress,
+			bindAddress,
+			externalDataPort,
 			localCommunicationOnly,
 			tmpDirs,
 			localStateRootDir,
