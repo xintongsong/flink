@@ -239,20 +239,20 @@ public class NettyShuffleEnvironmentConfiguration {
 	 * @return the data port
 	 */
 	private static int getDataBindPort(Configuration configuration) {
-		final Integer dataBindPort = configuration.getInteger(NettyShuffleEnvironmentOptions.DATA_BIND_PORT);
-		if (dataBindPort != null) {
+		final int dataBindPort;
+		if (configuration.contains(NettyShuffleEnvironmentOptions.DATA_BIND_PORT)) {
+			dataBindPort = configuration.getInteger(NettyShuffleEnvironmentOptions.DATA_BIND_PORT);
 			ConfigurationParserUtils.checkConfigParameter(
 				dataBindPort >= 0, dataBindPort, NettyShuffleEnvironmentOptions.DATA_BIND_PORT.key(),
 				"Leave config parameter empty to fallback to '" +
 					NettyShuffleEnvironmentOptions.DATA_PORT.key() + "' automatically.");
-			return dataBindPort;
 		} else {
-			final int dataPort = configuration.getInteger(NettyShuffleEnvironmentOptions.DATA_PORT);
+			dataBindPort = configuration.getInteger(NettyShuffleEnvironmentOptions.DATA_PORT);
 			ConfigurationParserUtils.checkConfigParameter(
 				dataBindPort >= 0, dataBindPort, NettyShuffleEnvironmentOptions.DATA_PORT.key(),
 				"Leave config parameter empty or use 0 to let the system choose a port automatically.");
-			return dataPort;
 		}
+		return dataBindPort;
 	}
 
 	/**
