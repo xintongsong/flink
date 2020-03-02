@@ -65,6 +65,26 @@ public class AkkaRpcServiceUtils {
 	//  RPC instantiation
 	// ------------------------------------------------------------------------
 
+	public static AkkaRpcService createRemoteRpcService(
+		Configuration configuration,
+		@Nullable String externalAddress,
+		String externalPortRange,
+		@Nullable String bindAddress,
+		@Nullable Integer bindPort) throws Exception {
+		final AkkaRpcServiceBuilder akkaRpcServiceBuilder =
+			AkkaRpcServiceUtils.remoteServiceBuilder(configuration, externalAddress, externalPortRange);
+
+		if (bindAddress != null) {
+			akkaRpcServiceBuilder.withBindAddress(bindAddress);
+		}
+
+		if (bindPort != null) {
+			akkaRpcServiceBuilder.withBindPort(bindPort);
+		}
+
+		return akkaRpcServiceBuilder.createAndStart();
+	}
+
 	public static AkkaRpcServiceBuilder remoteServiceBuilder(Configuration configuration, @Nullable String externalAddress, String externalPortRange) {
 		return new AkkaRpcServiceBuilder(configuration, LOG, externalAddress, externalPortRange);
 	}
