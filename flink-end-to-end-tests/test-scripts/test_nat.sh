@@ -66,6 +66,6 @@ docker-compose -f ${DOCKER_SCRIPTS}/docker-compose.nat.yml logs job-cluster > ${
 docker-compose -f ${DOCKER_SCRIPTS}/docker-compose.nat.yml logs taskmanager1 > ${FLINK_DIR}/log/taskmanager1.log
 docker-compose -f ${DOCKER_SCRIPTS}/docker-compose.nat.yml logs taskmanager2 > ${FLINK_DIR}/log/taskmanager2.log
 
-cat $OUTPUT_VOLUME/docker_wc_out/1 $OUTPUT_VOLUME/docker_wc_out/2 | sort > $OUTPUT_VOLUME/docker_wc_out/merged
+cat ${OUTPUT_VOLUME}/docker_wc_out/1 ${OUTPUT_VOLUME}/docker_wc_out/2 | sort > ${OUTPUT_VOLUME}/merged_output
 
-check_result_hash "WordCount" $OUTPUT_VOLUME/docker_wc_out/merged "${RESULT_HASH}"
+check_result_hash "WordCount" ${OUTPUT_VOLUME}/merged_output "${RESULT_HASH}"
