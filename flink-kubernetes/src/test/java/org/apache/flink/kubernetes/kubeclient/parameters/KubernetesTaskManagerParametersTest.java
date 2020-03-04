@@ -68,8 +68,7 @@ public class KubernetesTaskManagerParametersTest {
 		final TaskExecutorProcessSpec taskExecutorProcessSpec =
 			TaskExecutorProcessUtils.processSpecFromConfig(flinkConfig);
 		final ContaineredTaskManagerParameters containeredTaskManagerParameters =
-			ContaineredTaskManagerParameters.create(flinkConfig, taskExecutorProcessSpec,
-				flinkConfig.getInteger(TaskManagerOptions.NUM_TASK_SLOTS));
+			ContaineredTaskManagerParameters.create(flinkConfig, taskExecutorProcessSpec);
 
 		this.kubernetesTaskManagerParameters = new KubernetesTaskManagerParameters(flinkConfig,
 			POD_NAME,

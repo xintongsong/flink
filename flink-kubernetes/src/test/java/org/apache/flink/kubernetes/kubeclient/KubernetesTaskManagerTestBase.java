@@ -71,8 +71,7 @@ public class KubernetesTaskManagerTestBase extends KubernetesTestBase {
 				flinkConfig.setString(ResourceManagerOptions.CONTAINERIZED_TASK_MANAGER_ENV_PREFIX + k, v));
 
 		taskExecutorProcessSpec = TaskExecutorProcessUtils.processSpecFromConfig(flinkConfig);
-		containeredTaskManagerParameters = ContaineredTaskManagerParameters.create(flinkConfig, taskExecutorProcessSpec,
-				flinkConfig.getInteger(TaskManagerOptions.NUM_TASK_SLOTS));
+		containeredTaskManagerParameters = ContaineredTaskManagerParameters.create(flinkConfig, taskExecutorProcessSpec);
 		kubernetesTaskManagerParameters = new KubernetesTaskManagerParameters(
 				flinkConfig,
 				POD_NAME,
