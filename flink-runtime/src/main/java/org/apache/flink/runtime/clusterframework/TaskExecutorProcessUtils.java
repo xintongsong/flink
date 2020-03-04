@@ -26,6 +26,7 @@ import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
+import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.util.ConfigurationParserUtils;
 
 import org.slf4j.Logger;
@@ -143,6 +144,27 @@ public class TaskExecutorProcessUtils {
 				TaskManagerOptions.TOTAL_FLINK_MEMORY.key(),
 				TaskManagerOptions.TOTAL_PROCESS_MEMORY.key()));
 		}
+	}
+
+	public static TaskExecutorProcessSpec processSpecFromWorkerResourceSpec(
+		final Configuration config, final WorkerResourceSpec workerResourceSpec) {
+
+		final MemorySize frameworkHeapMemorySize = getFrameworkHeapMemorySize(config);
+		final MemorySize frameworkOffHeapMemorySize = getFrameworkOffHeapMemorySize(config);
+
+		final FlinkInternalMemory flinkInternalMemory = new FlinkInternalMemory(
+			frameworkHeapMemorySize,
+			frameworkOffHeapMemorySize,
+			workerResourceSpec.getTaskHeapSize(),
+			workerResourceSpec.getTaskOffHeapSize(),
+			workerResourceSpec.getNetworkMemSize(),
+			workerResourceSpec.getManagedMemSize());
+
+		final JvmMetaspaceAndOverhead jvmMetaspaceAndOverhead =
+			deriveJvmMetaspaceAndOverheadFromTotalFlinkMemory(
+				config, flinkInternalMemory.getTotalFlinkMemorySize());
+
+		return createTaskExecutorProcessSpec(workerResourceSpec.getCpuCores(), flinkInternalMemory, jvmMetaspaceAndOverhead);
 	}
 
 	private static TaskExecutorProcessSpec deriveProcessSpecWithExplicitTaskAndManagedMemory(final Configuration config) {
@@ -645,11 +667,11 @@ public class TaskExecutorProcessUtils {
 	}
 
 	private static TaskExecutorProcessSpec createTaskExecutorProcessSpec(
-			final Configuration config,
+			final CPUResource cpuCores,
 			final FlinkInternalMemory flinkInternalMemory,
 			final JvmMetaspaceAndOverhead jvmMetaspaceAndOverhead) {
 		return new TaskExecutorProcessSpec(
-			getCpuCores(config),
+			cpuCores,
 			flinkInternalMemory.frameworkHeap,
 			flinkInternalMemory.frameworkOffHeap,
 			flinkInternalMemory.taskHeap,
@@ -658,6 +680,13 @@ public class TaskExecutorProcessUtils {
 			flinkInternalMemory.managed,
 			jvmMetaspaceAndOverhead.metaspace,
 			jvmMetaspaceAndOverhead.overhead);
+	}
+
+	private static TaskExecutorProcessSpec createTaskExecutorProcessSpec(
+			final Configuration config,
+			final FlinkInternalMemory flinkInternalMemory,
+			final JvmMetaspaceAndOverhead jvmMetaspaceAndOverhead) {
+		return createTaskExecutorProcessSpec(getCpuCores(config), flinkInternalMemory, jvmMetaspaceAndOverhead);
 	}
 
 	private static class RangeFraction {

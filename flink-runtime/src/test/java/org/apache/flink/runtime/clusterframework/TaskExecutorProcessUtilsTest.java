@@ -28,6 +28,7 @@ import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.testutils.CommonTestUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
+import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.After;
@@ -43,6 +44,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 
@@ -685,6 +687,17 @@ public class TaskExecutorProcessUtilsTest extends TestLogger {
 			assertThat(e.getMessage(), containsString(TaskManagerOptions.TOTAL_FLINK_MEMORY.key()));
 			assertThat(e.getMessage(), containsString(TaskManagerOptions.TOTAL_PROCESS_MEMORY.key()));
 		}
+	}
+
+	@Test
+	public void testProcessSpecFromWorkerResourceSpec() {
+		final WorkerResourceSpec workerResourceSpec = new WorkerResourceSpec(1.0, 100, 200, 300, 400);
+		final TaskExecutorProcessSpec taskExecutorProcessSpec = TaskExecutorProcessUtils.processSpecFromWorkerResourceSpec(new Configuration(), workerResourceSpec);
+		assertEquals(workerResourceSpec.getCpuCores(), taskExecutorProcessSpec.getCpuCores());
+		assertEquals(workerResourceSpec.getTaskHeapSize(), taskExecutorProcessSpec.getTaskHeapSize());
+		assertEquals(workerResourceSpec.getTaskOffHeapSize(), taskExecutorProcessSpec.getTaskOffHeapSize());
+		assertEquals(workerResourceSpec.getNetworkMemSize(), taskExecutorProcessSpec.getNetworkMemSize());
+		assertEquals(workerResourceSpec.getManagedMemSize(), taskExecutorProcessSpec.getManagedMemorySize());
 	}
 
 	private void validateInAllConfigurations(final Configuration customConfig, Consumer<TaskExecutorProcessSpec> validateFunc) {
