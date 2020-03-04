@@ -84,6 +84,7 @@ public class ResourceManagerRuntimeServices {
 			slotManagerConfiguration.getSlotRequestTimeout(),
 			slotManagerConfiguration.getTaskManagerTimeout(),
 			slotManagerConfiguration.isWaitResultConsumedBeforeRelease(),
-			slotManagerConfiguration.getDefaultWorkerResourceSpec());
+			slotManagerConfiguration.getDefaultWorkerResourceSpec(),
+			slotManagerConfiguration.getNumSlotsPerWorker());
 	}
 }
