@@ -49,6 +49,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -199,6 +200,14 @@ public class SlotManagerImpl implements SlotManager {
 	}
 
 	@Override
+	public Map<WorkerResourceSpec, Integer> getPendingWorkerNums() {
+		final int pendingWorkerNum = (int) Math.ceil((double) pendingSlots.size() / numSlotsPerWorker);
+		return pendingWorkerNum > 0 ?
+			Collections.singletonMap(defaultWorkerResourceSpec, pendingWorkerNum) :
+			Collections.emptyMap();
+	}
+
+	@VisibleForTesting
 	public int getNumberPendingTaskManagerSlots() {
 		return pendingSlots.size();
 	}
