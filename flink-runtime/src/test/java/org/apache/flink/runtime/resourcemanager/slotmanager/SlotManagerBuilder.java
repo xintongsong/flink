@@ -20,7 +20,10 @@ package org.apache.flink.runtime.resourcemanager.slotmanager;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
+import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.testingUtils.TestingUtils;
+
+import javax.annotation.Nullable;
 
 /** Builder for {@link SlotManagerImpl}. */
 public class SlotManagerBuilder {
@@ -30,6 +33,7 @@ public class SlotManagerBuilder {
 	private Time slotRequestTimeout;
 	private Time taskManagerTimeout;
 	private boolean waitResultConsumedBeforeRelease;
+	@Nullable private WorkerResourceSpec defaultWorkerResourceSpec;
 
 	private SlotManagerBuilder() {
 		this.slotMatchingStrategy = AnyMatchingSlotMatchingStrategy.INSTANCE;
@@ -38,6 +42,7 @@ public class SlotManagerBuilder {
 		this.slotRequestTimeout = TestingUtils.infiniteTime();
 		this.taskManagerTimeout = TestingUtils.infiniteTime();
 		this.waitResultConsumedBeforeRelease = true;
+		this.defaultWorkerResourceSpec = null;
 	}
 
 	public static SlotManagerBuilder newBuilder() {
@@ -74,6 +79,11 @@ public class SlotManagerBuilder {
 		return this;
 	}
 
+	public SlotManagerBuilder setDefaultWorkerResourceSpec(WorkerResourceSpec defaultWorkerResourceSpec) {
+		this.defaultWorkerResourceSpec = defaultWorkerResourceSpec;
+		return this;
+	}
+
 	public SlotManagerImpl build() {
 		return new SlotManagerImpl(
 			slotMatchingStrategy,
@@ -81,6 +91,7 @@ public class SlotManagerBuilder {
 			taskManagerRequestTimeout,
 			slotRequestTimeout,
 			taskManagerTimeout,
-			waitResultConsumedBeforeRelease);
+			waitResultConsumedBeforeRelease,
+			defaultWorkerResourceSpec);
 	}
 }

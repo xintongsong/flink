@@ -29,6 +29,7 @@ import org.apache.flink.runtime.instance.InstanceID;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
+import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.exceptions.UnfulfillableSlotRequestException;
 import org.apache.flink.runtime.resourcemanager.registration.TaskExecutorConnection;
@@ -125,13 +126,17 @@ public class SlotManagerImpl implements SlotManager {
 	 * */
 	private boolean failUnfulfillableRequest = true;
 
+	@Nullable
+	private final WorkerResourceSpec workerResourceSpec;
+
 	public SlotManagerImpl(
 			SlotMatchingStrategy slotMatchingStrategy,
 			ScheduledExecutor scheduledExecutor,
 			Time taskManagerRequestTimeout,
 			Time slotRequestTimeout,
 			Time taskManagerTimeout,
-			boolean waitResultConsumedBeforeRelease) {
+			boolean waitResultConsumedBeforeRelease,
+			@Nullable WorkerResourceSpec workerResourceSpec) {
 
 		this.slotMatchingStrategy = Preconditions.checkNotNull(slotMatchingStrategy);
 		this.scheduledExecutor = Preconditions.checkNotNull(scheduledExecutor);
@@ -139,6 +144,7 @@ public class SlotManagerImpl implements SlotManager {
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
+		this.workerResourceSpec = workerResourceSpec;
 
 		slots = new HashMap<>(16);
 		freeSlots = new LinkedHashMap<>(16);
