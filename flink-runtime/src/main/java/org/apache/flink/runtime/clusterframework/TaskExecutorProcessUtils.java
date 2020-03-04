@@ -103,25 +103,15 @@ public class TaskExecutorProcessUtils {
 		return Collections.nCopies(numberOfSlots, resourceProfile);
 	}
 
-	public static ResourceProfile generateDefaultSlotResourceProfile(
-			TaskExecutorProcessSpec taskExecutorProcessSpec,
-			int numberOfSlots) {
+	static ResourceProfile generateDefaultSlotResourceProfile(
+		TaskExecutorProcessSpec taskExecutorProcessSpec,
+		int numberOfSlots) {
 		return ResourceProfile.newBuilder()
 			.setCpuCores(taskExecutorProcessSpec.getCpuCores().divide(numberOfSlots))
 			.setTaskHeapMemory(taskExecutorProcessSpec.getTaskHeapSize().divide(numberOfSlots))
 			.setTaskOffHeapMemory(taskExecutorProcessSpec.getTaskOffHeapSize().divide(numberOfSlots))
 			.setManagedMemory(taskExecutorProcessSpec.getManagedMemorySize().divide(numberOfSlots))
 			.setNetworkMemory(taskExecutorProcessSpec.getNetworkMemSize().divide(numberOfSlots))
-			.build();
-	}
-
-	public static ResourceProfile generateTotalAvailableResourceProfile(TaskExecutorProcessSpec taskExecutorProcessSpec) {
-		return ResourceProfile.newBuilder()
-			.setCpuCores(taskExecutorProcessSpec.getCpuCores())
-			.setTaskHeapMemory(taskExecutorProcessSpec.getTaskHeapSize())
-			.setTaskOffHeapMemory(taskExecutorProcessSpec.getTaskOffHeapSize())
-			.setManagedMemory(taskExecutorProcessSpec.getManagedMemorySize())
-			.setNetworkMemory(taskExecutorProcessSpec.getNetworkMemSize())
 			.build();
 	}
 
@@ -153,12 +143,6 @@ public class TaskExecutorProcessUtils {
 				TaskManagerOptions.TOTAL_FLINK_MEMORY.key(),
 				TaskManagerOptions.TOTAL_PROCESS_MEMORY.key()));
 		}
-	}
-
-	public static boolean isTaskExecutorProcessResourceExplicitlyConfigured(final Configuration config) {
-		return (isTaskHeapMemorySizeExplicitlyConfigured(config) && isManagedMemorySizeExplicitlyConfigured(config))
-			|| isTotalFlinkMemorySizeExplicitlyConfigured(config)
-			|| isTotalProcessMemorySizeExplicitlyConfigured(config);
 	}
 
 	private static TaskExecutorProcessSpec deriveProcessSpecWithExplicitTaskAndManagedMemory(final Configuration config) {
@@ -490,7 +474,7 @@ public class TaskExecutorProcessUtils {
 		return config.contains(TaskManagerOptions.TASK_HEAP_MEMORY);
 	}
 
-	public static boolean isManagedMemorySizeExplicitlyConfigured(final Configuration config) {
+	private static boolean isManagedMemorySizeExplicitlyConfigured(final Configuration config) {
 		return config.contains(TaskManagerOptions.MANAGED_MEMORY_SIZE);
 	}
 
@@ -507,15 +491,6 @@ public class TaskExecutorProcessUtils {
 
 	private static boolean isNetworkMemoryFractionExplicitlyConfigured(final Configuration config) {
 		return config.contains(TaskManagerOptions.NETWORK_MEMORY_FRACTION);
-	}
-
-	public static boolean isNetworkMemoryExplicitlyConfigured(final Configuration config) {
-		@SuppressWarnings("deprecation")
-		final boolean legacyConfigured = config.contains(NettyShuffleEnvironmentOptions.NETWORK_NUM_BUFFERS);
-		return config.contains(TaskManagerOptions.NETWORK_MEMORY_MAX) ||
-			config.contains(TaskManagerOptions.NETWORK_MEMORY_MIN) ||
-			config.contains(TaskManagerOptions.NETWORK_MEMORY_FRACTION) ||
-			legacyConfigured;
 	}
 
 	private static boolean isJvmOverheadFractionExplicitlyConfigured(final Configuration config) {
