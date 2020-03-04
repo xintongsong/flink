@@ -55,8 +55,6 @@ import javax.annotation.Nullable;
 
 import java.io.File;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -166,13 +164,10 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	}
 
 	@Override
-	public Collection<ResourceProfile> startNewWorker(ResourceProfile resourceProfile) {
+	public boolean startNewWorker(ResourceProfile resourceProfile) {
 		LOG.info("Starting new worker with resource profile, {}", resourceProfile);
-		if (!resourceProfilesPerWorker.iterator().next().isMatching(resourceProfile)) {
-			return Collections.emptyList();
-		}
 		requestKubernetesPod();
-		return resourceProfilesPerWorker;
+		return true;
 	}
 
 	@Override

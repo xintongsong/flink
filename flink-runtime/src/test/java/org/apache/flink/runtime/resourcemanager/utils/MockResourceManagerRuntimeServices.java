@@ -25,6 +25,7 @@ import org.apache.flink.runtime.heartbeat.TestingHeartbeatServices;
 import org.apache.flink.runtime.highavailability.TestingHighAvailabilityServices;
 import org.apache.flink.runtime.leaderelection.TestingLeaderElectionService;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
+import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManagerBuilder;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -50,6 +51,7 @@ public class MockResourceManagerRuntimeServices {
 
 	public MockResourceManagerRuntimeServices(RpcService rpcService, Time timeout) {
 		this(rpcService, timeout, SlotManagerBuilder.newBuilder()
+			.setDefaultWorkerResourceSpec(new WorkerResourceSpec(1.0, 100, 100, 100, 100))
 			.setScheduledExecutor(new ScheduledExecutorServiceAdapter(new DirectScheduledExecutorService()))
 			.setTaskManagerRequestTimeout(Time.seconds(10))
 			.setSlotRequestTimeout(Time.seconds(10))

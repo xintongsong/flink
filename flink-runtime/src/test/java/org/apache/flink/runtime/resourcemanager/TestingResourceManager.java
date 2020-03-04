@@ -32,9 +32,6 @@ import org.apache.flink.runtime.rpc.RpcService;
 
 import javax.annotation.Nullable;
 
-import java.util.Collection;
-import java.util.Collections;
-
 /**
  * Simple {@link ResourceManager} implementation for testing purposes.
  */
@@ -74,8 +71,8 @@ public class TestingResourceManager extends ResourceManager<ResourceID> {
 	}
 
 	@Override
-	public Collection<ResourceProfile> startNewWorker(ResourceProfile resourceProfile) {
-		return Collections.emptyList();
+	public boolean startNewWorker(ResourceProfile resourceProfile) {
+		return false;
 	}
 
 	@Override
