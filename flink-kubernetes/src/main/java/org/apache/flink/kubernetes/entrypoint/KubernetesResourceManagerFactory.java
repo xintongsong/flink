@@ -18,9 +18,12 @@
 
 package org.apache.flink.kubernetes.entrypoint;
 
+import org.apache.flink.api.common.resources.CPUResource;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.kubernetes.KubernetesResourceManager;
 import org.apache.flink.kubernetes.KubernetesWorkerNode;
+import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
@@ -61,7 +64,8 @@ public class KubernetesResourceManagerFactory extends ActiveResourceManagerFacto
 			@Nullable String webInterfaceUrl,
 			ResourceManagerMetricGroup resourceManagerMetricGroup) throws Exception {
 		final ResourceManagerRuntimeServicesConfiguration rmServicesConfiguration =
-			ResourceManagerRuntimeServicesConfiguration.fromConfiguration(configuration);
+			ResourceManagerRuntimeServicesConfiguration.fromConfiguration(
+				configuration, createDefaultWorkerResourceSpec(configuration));
 		final ResourceManagerRuntimeServices rmRuntimeServices = ResourceManagerRuntimeServices.fromConfiguration(
 			rmServicesConfiguration,
 			highAvailabilityServices,
@@ -79,5 +83,11 @@ public class KubernetesResourceManagerFactory extends ActiveResourceManagerFacto
 			clusterInformation,
 			fatalErrorHandler,
 			resourceManagerMetricGroup);
+	}
+
+	@Override
+	protected CPUResource getDefaultCpus(Configuration configuration) {
+		double fallback = configuration.getDouble(KubernetesConfigOptions.TASK_MANAGER_CPU);
+		return TaskExecutorProcessUtils.getCpuCoresWithFallback(configuration, fallback);
 	}
 }

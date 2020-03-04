@@ -18,7 +18,10 @@
 
 package org.apache.flink.yarn.entrypoint;
 
+import org.apache.flink.api.common.resources.CPUResource;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.IllegalConfigurationException;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
@@ -33,6 +36,10 @@ import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.yarn.YarnResourceManager;
 import org.apache.flink.yarn.YarnWorkerNode;
+import org.apache.flink.yarn.configuration.YarnConfigOptions;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -40,6 +47,8 @@ import javax.annotation.Nullable;
  * {@link ResourceManagerFactory} implementation which creates a {@link YarnResourceManager}.
  */
 public class YarnResourceManagerFactory extends ActiveResourceManagerFactory<YarnWorkerNode> {
+
+	private static final Logger LOG = LoggerFactory.getLogger(YarnResourceManagerFactory.class);
 
 	private static final YarnResourceManagerFactory INSTANCE = new YarnResourceManagerFactory();
 
@@ -60,7 +69,8 @@ public class YarnResourceManagerFactory extends ActiveResourceManagerFactory<Yar
 			ClusterInformation clusterInformation,
 			@Nullable String webInterfaceUrl,
 			ResourceManagerMetricGroup resourceManagerMetricGroup) throws Exception {
-		final ResourceManagerRuntimeServicesConfiguration rmServicesConfiguration = ResourceManagerRuntimeServicesConfiguration.fromConfiguration(configuration);
+		final ResourceManagerRuntimeServicesConfiguration rmServicesConfiguration =
+			ResourceManagerRuntimeServicesConfiguration.fromConfiguration(configuration, createDefaultWorkerResourceSpec(configuration));
 		final ResourceManagerRuntimeServices rmRuntimeServices = ResourceManagerRuntimeServices.fromConfiguration(
 			rmServicesConfiguration,
 			highAvailabilityServices,
@@ -80,5 +90,28 @@ public class YarnResourceManagerFactory extends ActiveResourceManagerFactory<Yar
 			fatalErrorHandler,
 			webInterfaceUrl,
 			resourceManagerMetricGroup);
+	}
+
+	@Override
+	protected CPUResource getDefaultCpus(final Configuration configuration) {
+		int fallback = configuration.getInteger(YarnConfigOptions.VCORES);
+		double cpuCoresDouble = TaskExecutorProcessUtils.getCpuCoresWithFallback(configuration, fallback).getValue().doubleValue();
+		@SuppressWarnings("NumericCastThatLosesPrecision")
+		long cpuCoresLong = Math.max((long) Math.ceil(cpuCoresDouble), 1L);
+		//noinspection FloatingPointEquality
+		if (cpuCoresLong != cpuCoresDouble) {
+			LOG.info(
+				"The amount of cpu cores must be a positive integer on Yarn. Rounding {} up to the closest positive integer {}.",
+				cpuCoresDouble,
+				cpuCoresLong);
+		}
+		if (cpuCoresLong > Integer.MAX_VALUE) {
+			throw new IllegalConfigurationException(String.format(
+				"The amount of cpu cores %d cannot exceed Integer.MAX_VALUE: %d",
+				cpuCoresLong,
+				Integer.MAX_VALUE));
+		}
+		//noinspection NumericCastThatLosesPrecision
+		return new CPUResource(cpuCoresLong);
 	}
 }
