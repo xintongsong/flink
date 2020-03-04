@@ -827,13 +827,13 @@ public class SlotManagerImpl implements SlotManager {
 		}
 
 		if (!Preconditions.checkNotNull(slotResourceProfile,
-			"slotResourceProfile should be null iff taskExecutorProcessSpec is null, which means standalone mode.")
+			"slotResourceProfile should be null iff workerResourceSpec is null, which means standalone mode.")
 			.isMatching(resourceProfile)) {
 			// requested resource profile is unfulfillable
 			return Optional.empty();
 		}
 
-		if (!resourceActions.allocateResource(resourceProfile)) {
+		if (!resourceActions.allocateResource(workerResourceSpec)) {
 			// resource cannot be allocated
 			return Optional.empty();
 		}
