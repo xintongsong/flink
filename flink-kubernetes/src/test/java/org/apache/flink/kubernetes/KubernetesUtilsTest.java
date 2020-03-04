@@ -321,7 +321,7 @@ public class KubernetesUtilsTest extends TestLogger {
 			String mainClassArgs) {
 
 		final ContaineredTaskManagerParameters containeredParams =
-			new ContaineredTaskManagerParameters(TASK_EXECUTOR_PROCESS_SPEC, 4, new HashMap<>());
+			new ContaineredTaskManagerParameters(TASK_EXECUTOR_PROCESS_SPEC, new HashMap<>());
 
 		return KubernetesUtils.getTaskManagerStartCommand(
 			cfg,
