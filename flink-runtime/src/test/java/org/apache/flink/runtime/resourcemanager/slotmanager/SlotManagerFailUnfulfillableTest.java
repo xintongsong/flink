@@ -27,6 +27,7 @@ import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.concurrent.Executors;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
+import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.exceptions.UnfulfillableSlotRequestException;
 import org.apache.flink.runtime.resourcemanager.registration.TaskExecutorConnection;
@@ -51,6 +52,9 @@ import static org.junit.Assert.fail;
  * Tests for setting the SlotManager to eagerly fail unfulfillable requests.
  */
 public class SlotManagerFailUnfulfillableTest extends TestLogger {
+
+	private static final WorkerResourceSpec WORKER_RESOURCE_SPEC = new WorkerResourceSpec(
+		100.0, 10000, 10000, 10000, 10000);
 
 	@Test
 	public void testTurnOnKeepsPendingFulfillableRequests() throws Exception {
@@ -189,13 +193,13 @@ public class SlotManagerFailUnfulfillableTest extends TestLogger {
 			boolean startNewTMs) {
 
 		final ResourceActions resourceManagerActions = new TestingResourceActionsBuilder()
-			.setAllocateResourceFunction((resourceProfile) -> startNewTMs ?
-							Collections.singleton(resourceProfile) :
-							Collections.emptyList())
+			.setAllocateResourceFunction(ignored -> startNewTMs)
 			.setNotifyAllocationFailureConsumer(tuple3 -> notifiedAllocationFailures.add(tuple3))
 			.build();
 
-		SlotManager slotManager = SlotManagerBuilder.newBuilder().build();
+		SlotManager slotManager = SlotManagerBuilder.newBuilder()
+			.setDefaultWorkerResourceSpec(startNewTMs ? WORKER_RESOURCE_SPEC : null)
+			.build();
 		slotManager.start(ResourceManagerId.generate(), Executors.directExecutor(), resourceManagerActions);
 
 		return slotManager;

@@ -25,15 +25,12 @@ import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
-import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.util.ConfigurationParserUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -89,30 +86,6 @@ public class TaskExecutorProcessUtils {
 			sb.append("-D ").append(entry.getKey()).append("=").append(entry.getValue()).append(" ");
 		}
 		return sb.toString();
-	}
-
-	// ------------------------------------------------------------------------
-	//  Generating Slot Resource Profiles
-	// ------------------------------------------------------------------------
-
-	public static List<ResourceProfile> createDefaultWorkerSlotProfiles(
-			TaskExecutorProcessSpec taskExecutorProcessSpec,
-			int numberOfSlots) {
-		final ResourceProfile resourceProfile =
-			generateDefaultSlotResourceProfile(taskExecutorProcessSpec, numberOfSlots);
-		return Collections.nCopies(numberOfSlots, resourceProfile);
-	}
-
-	static ResourceProfile generateDefaultSlotResourceProfile(
-		TaskExecutorProcessSpec taskExecutorProcessSpec,
-		int numberOfSlots) {
-		return ResourceProfile.newBuilder()
-			.setCpuCores(taskExecutorProcessSpec.getCpuCores().divide(numberOfSlots))
-			.setTaskHeapMemory(taskExecutorProcessSpec.getTaskHeapSize().divide(numberOfSlots))
-			.setTaskOffHeapMemory(taskExecutorProcessSpec.getTaskOffHeapSize().divide(numberOfSlots))
-			.setManagedMemory(taskExecutorProcessSpec.getManagedMemorySize().divide(numberOfSlots))
-			.setNetworkMemory(taskExecutorProcessSpec.getNetworkMemSize().divide(numberOfSlots))
-			.build();
 	}
 
 	// ------------------------------------------------------------------------

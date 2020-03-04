@@ -29,6 +29,7 @@ import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.concurrent.ScheduledExecutorServiceAdapter;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
+import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.registration.TaskExecutorConnection;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.SlotStatus;
@@ -82,6 +83,7 @@ public class SlotProtocolTest extends TestLogger {
 		final ResourceManagerId rmLeaderID = ResourceManagerId.generate();
 
 		try (SlotManager slotManager = SlotManagerBuilder.newBuilder()
+			.setDefaultWorkerResourceSpec(new WorkerResourceSpec(1.0, 100, 100, 100, 100))
 			.setScheduledExecutor(scheduledExecutor)
 			.build()) {
 
