@@ -267,10 +267,9 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	 * Request new pod if pending pods cannot satisfy pending slot requests.
 	 */
 	private void requestKubernetesPodIfRequired() {
-		final int requiredTaskManagerSlots = getNumberRequiredTaskManagerSlots();
-		final int pendingTaskManagerSlots = numPendingPodRequests * numSlotsPerTaskManager;
+		final int requiredTaskManagers = getNumberRequiredTaskManagers();
 
-		if (requiredTaskManagerSlots > pendingTaskManagerSlots) {
+		if (requiredTaskManagers > numPendingPodRequests) {
 			requestKubernetesPod();
 		}
 	}
