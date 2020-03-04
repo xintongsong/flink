@@ -44,7 +44,7 @@ public class SlotManagerConfigurationTest extends TestLogger {
 
 		final Configuration configuration = new Configuration();
 		configuration.setLong(JobManagerOptions.SLOT_REQUEST_TIMEOUT, slotIdleTimeout);
-		final SlotManagerConfiguration slotManagerConfiguration = SlotManagerConfiguration.fromConfiguration(configuration);
+		final SlotManagerConfiguration slotManagerConfiguration = SlotManagerConfiguration.fromConfiguration(configuration, null);
 
 		assertThat(slotManagerConfiguration.getSlotRequestTimeout().toMilliseconds(), is(equalTo(slotIdleTimeout)));
 	}
@@ -60,7 +60,7 @@ public class SlotManagerConfigurationTest extends TestLogger {
 		final Configuration configuration = new Configuration();
 		configuration.setLong(ResourceManagerOptions.SLOT_REQUEST_TIMEOUT, legacySlotIdleTimeout);
 		configuration.setLong(JobManagerOptions.SLOT_REQUEST_TIMEOUT, 300000L);
-		final SlotManagerConfiguration slotManagerConfiguration = SlotManagerConfiguration.fromConfiguration(configuration);
+		final SlotManagerConfiguration slotManagerConfiguration = SlotManagerConfiguration.fromConfiguration(configuration, null);
 
 		assertThat(slotManagerConfiguration.getSlotRequestTimeout().toMilliseconds(), is(equalTo(legacySlotIdleTimeout)));
 	}

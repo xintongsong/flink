@@ -18,8 +18,10 @@
 
 package org.apache.flink.runtime.resourcemanager;
 
+import org.apache.flink.api.common.resources.CPUResource;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceIDRetrievable;
@@ -81,4 +83,14 @@ public abstract class ActiveResourceManagerFactory<T extends ResourceIDRetrievab
 		ClusterInformation clusterInformation,
 		@Nullable String webInterfaceUrl,
 		ResourceManagerMetricGroup resourceManagerMetricGroup) throws Exception;
+
+	protected WorkerResourceSpec createDefaultWorkerResourceSpec(Configuration configuration) {
+		final TaskExecutorProcessSpec taskExecutorProcessSpec = TaskExecutorProcessUtils
+			.newProcessSpecBuilder(configuration)
+			.withCpuCores(getDefaultCpus(configuration))
+			.build();
+		return WorkerResourceSpec.fromTaskExecutorProcessSpec(taskExecutorProcessSpec);
+	}
+
+	protected abstract CPUResource getDefaultCpus(Configuration configuration);
 }

@@ -25,11 +25,14 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
+import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.util.ConfigurationException;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 
 /**
  * Configuration for the {@link SlotManager}.
@@ -43,19 +46,23 @@ public class SlotManagerConfiguration {
 	private final Time taskManagerTimeout;
 	private final boolean waitResultConsumedBeforeRelease;
 	private final boolean evenlySpreadOutSlots;
+	@Nullable
+	private final WorkerResourceSpec defaultWorkerResourceSpec;
 
 	public SlotManagerConfiguration(
 			Time taskManagerRequestTimeout,
 			Time slotRequestTimeout,
 			Time taskManagerTimeout,
 			boolean waitResultConsumedBeforeRelease,
-			boolean evenlySpreadOutSlots) {
+			boolean evenlySpreadOutSlots,
+			@Nullable WorkerResourceSpec defaultWorkerResourceSpec) {
 
 		this.taskManagerRequestTimeout = Preconditions.checkNotNull(taskManagerRequestTimeout);
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
 		this.evenlySpreadOutSlots = evenlySpreadOutSlots;
+		this.defaultWorkerResourceSpec = defaultWorkerResourceSpec;
 	}
 
 	public Time getTaskManagerRequestTimeout() {
@@ -78,7 +85,15 @@ public class SlotManagerConfiguration {
 		return evenlySpreadOutSlots;
 	}
 
-	public static SlotManagerConfiguration fromConfiguration(Configuration configuration) throws ConfigurationException {
+	@Nullable
+	public WorkerResourceSpec getDefaultWorkerResourceSpec() {
+		return defaultWorkerResourceSpec;
+	}
+
+	public static SlotManagerConfiguration fromConfiguration(
+			Configuration configuration,
+			@Nullable WorkerResourceSpec defaultWorkerResourceSpec) throws ConfigurationException {
+
 		final Time rpcTimeout;
 		try {
 			rpcTimeout = AkkaUtils.getTimeoutAsTime(configuration);
@@ -101,7 +116,8 @@ public class SlotManagerConfiguration {
 			slotRequestTimeout,
 			taskManagerTimeout,
 			waitResultConsumedBeforeRelease,
-			evenlySpreadOutSlots);
+			evenlySpreadOutSlots,
+			defaultWorkerResourceSpec);
 	}
 
 	private static Time getSlotRequestTimeout(final Configuration configuration) {

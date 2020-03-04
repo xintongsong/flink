@@ -26,6 +26,8 @@ import org.apache.flink.util.ConfigurationException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.TimeUtils;
 
+import javax.annotation.Nullable;
+
 /**
  * Configuration class for the {@link ResourceManagerRuntimeServices} class.
  */
@@ -50,7 +52,9 @@ public class ResourceManagerRuntimeServicesConfiguration {
 
 	// ---------------------------- Static methods ----------------------------------
 
-	public static ResourceManagerRuntimeServicesConfiguration fromConfiguration(Configuration configuration) throws ConfigurationException {
+	public static ResourceManagerRuntimeServicesConfiguration fromConfiguration(
+			Configuration configuration,
+			@Nullable WorkerResourceSpec defaultWorkerResourceSpec) throws ConfigurationException {
 
 		final String strJobTimeout = configuration.getString(ResourceManagerOptions.JOB_TIMEOUT);
 		final Time jobTimeout;
@@ -62,7 +66,8 @@ public class ResourceManagerRuntimeServicesConfiguration {
 				"value " + ResourceManagerOptions.JOB_TIMEOUT + '.', e);
 		}
 
-		final SlotManagerConfiguration slotManagerConfiguration = SlotManagerConfiguration.fromConfiguration(configuration);
+		final SlotManagerConfiguration slotManagerConfiguration =
+			SlotManagerConfiguration.fromConfiguration(configuration, defaultWorkerResourceSpec);
 
 		return new ResourceManagerRuntimeServicesConfiguration(jobTimeout, slotManagerConfiguration);
 	}

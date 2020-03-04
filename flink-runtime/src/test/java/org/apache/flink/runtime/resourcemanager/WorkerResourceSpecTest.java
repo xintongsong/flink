@@ -18,6 +18,11 @@
 
 package org.apache.flink.runtime.resourcemanager;
 
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
+
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -64,5 +69,20 @@ public class WorkerResourceSpecTest {
 		assertNotEquals(spec1.hashCode(), spec5.hashCode());
 		assertNotEquals(spec1.hashCode(), spec6.hashCode());
 		assertNotEquals(spec1.hashCode(), spec7.hashCode());
+	}
+
+	@Test
+	public void testCreateFromTaskExecutorProcessSpec() {
+		final TaskExecutorProcessSpec taskExecutorProcessSpec = TaskExecutorProcessUtils
+			.newProcessSpecBuilder(new Configuration())
+			.withTotalProcessMemory(MemorySize.ofMebiBytes(1024))
+			.build();
+		final WorkerResourceSpec workerResourceSpec =
+			WorkerResourceSpec.fromTaskExecutorProcessSpec(taskExecutorProcessSpec);
+		assertEquals(workerResourceSpec.getCpuCores(), taskExecutorProcessSpec.getCpuCores());
+		assertEquals(workerResourceSpec.getTaskHeapSize(), taskExecutorProcessSpec.getTaskHeapSize());
+		assertEquals(workerResourceSpec.getTaskOffHeapSize(), taskExecutorProcessSpec.getTaskOffHeapSize());
+		assertEquals(workerResourceSpec.getNetworkMemSize(), taskExecutorProcessSpec.getNetworkMemSize());
+		assertEquals(workerResourceSpec.getManagedMemSize(), taskExecutorProcessSpec.getManagedMemorySize());
 	}
 }

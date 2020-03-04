@@ -21,6 +21,7 @@ package org.apache.flink.runtime.resourcemanager;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.resources.CPUResource;
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.util.Preconditions;
 
 import java.util.Objects;
@@ -66,6 +67,16 @@ public class WorkerResourceSpec {
 			MemorySize.ofMebiBytes(taskOffHeapMB),
 			MemorySize.ofMebiBytes(networkMemMB),
 			MemorySize.ofMebiBytes(managedMemMB));
+	}
+
+	public static WorkerResourceSpec fromTaskExecutorProcessSpec(final TaskExecutorProcessSpec taskExecutorProcessSpec) {
+		Preconditions.checkNotNull(taskExecutorProcessSpec);
+		return new WorkerResourceSpec(
+			taskExecutorProcessSpec.getCpuCores(),
+			taskExecutorProcessSpec.getTaskHeapSize(),
+			taskExecutorProcessSpec.getTaskOffHeapSize(),
+			taskExecutorProcessSpec.getNetworkMemSize(),
+			taskExecutorProcessSpec.getManagedMemorySize());
 	}
 
 	public CPUResource getCpuCores() {
