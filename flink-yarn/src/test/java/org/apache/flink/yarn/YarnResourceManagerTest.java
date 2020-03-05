@@ -43,6 +43,7 @@ import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
+import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.resourcemanager.utils.MockResourceManagerRuntimeServices;
@@ -110,9 +111,11 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
@@ -137,6 +140,8 @@ public class YarnResourceManagerTest extends TestLogger {
 
 	private TestingFatalErrorHandler testingFatalErrorHandler;
 
+	private WorkerResourceSpec workerResourceSpec;
+
 	@Rule
 	public TemporaryFolder folder = new TemporaryFolder();
 
@@ -147,6 +152,8 @@ public class YarnResourceManagerTest extends TestLogger {
 		flinkConfig = new Configuration();
 		flinkConfig.setInteger(ResourceManagerOptions.CONTAINERIZED_HEAP_CUTOFF_MIN, 100);
 		flinkConfig.set(TaskManagerOptions.TOTAL_FLINK_MEMORY, MemorySize.parse("1g"));
+
+		workerResourceSpec = new WorkerResourceSpec(1.0, 100, 100, 100, 100);
 
 		File root = folder.getRoot();
 		File home = new File(root, "home");
@@ -179,6 +186,8 @@ public class YarnResourceManagerTest extends TestLogger {
 	static class TestingYarnResourceManager extends YarnResourceManager {
 		AMRMClientAsync<AMRMClient.ContainerRequest> mockResourceManagerClient;
 		NMClientAsync mockNMClient;
+		@Nullable
+		Map<WorkerResourceSpec, Integer> pendingWorkerNums;
 
 		TestingYarnResourceManager(
 				RpcService rpcService,
@@ -212,6 +221,7 @@ public class YarnResourceManagerTest extends TestLogger {
 				resourceManagerMetricGroup);
 			this.mockNMClient = mockNMClient;
 			this.mockResourceManagerClient = mockResourceManagerClient;
+			this.pendingWorkerNums = null;
 		}
 
 		<T> CompletableFuture<T> runInMainThread(Callable<T> callable) {
@@ -233,6 +243,11 @@ public class YarnResourceManagerTest extends TestLogger {
 		@Override
 		protected NMClientAsync createAndStartNodeManagerClient(YarnConfiguration yarnConfiguration) {
 			return mockNMClient;
+		}
+
+		@Override
+		public Map<WorkerResourceSpec, Integer> getPendingWorkerNums() {
+			return pendingWorkerNums != null ? pendingWorkerNums : super.getPendingWorkerNums();
 		}
 	}
 
@@ -326,8 +341,20 @@ public class YarnResourceManagerTest extends TestLogger {
 			verify(mockNMClient, VERIFICATION_TIMEOUT).startContainerAsync(eq(testingContainer), any(ContainerLaunchContext.class));
 		}
 
+		void verifyContainerHasBeenStartedWithCommandContainsString(String command) {
+			verify(mockResourceManagerClient, VERIFICATION_TIMEOUT.atLeastOnce()).removeContainerRequest(any(AMRMClient.ContainerRequest.class));
+			verify(mockNMClient, VERIFICATION_TIMEOUT).startContainerAsync(
+				any(Container.class),
+				argThat(context -> context.getCommands().stream().anyMatch(str -> str.contains(command))));
+		}
+
 		void verifyContainerHasBeenRequested() {
 			verify(mockResourceManagerClient, VERIFICATION_TIMEOUT).addContainerRequest(any(AMRMClient.ContainerRequest.class));
+		}
+
+		void verifyContainerHasBeenRequested(Resource resource, int times) {
+			verify(mockResourceManagerClient, VERIFICATION_TIMEOUT.times(times)).addContainerRequest(
+				argThat(request -> request.getCapability().equals(resource)));
 		}
 	}
 
@@ -385,9 +412,9 @@ public class YarnResourceManagerTest extends TestLogger {
 				registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
 
 				// Callback from YARN when container is allocated.
-				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource());
+				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource(workerResourceSpec));
 
-				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest())))
+				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest(workerResourceSpec))))
 					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
 
 				resourceManager.onContainersAllocated(ImmutableList.of(testingContainer));
@@ -483,9 +510,9 @@ public class YarnResourceManagerTest extends TestLogger {
 				registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
 
 				// Callback from YARN when container is allocated.
-				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource());
+				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource(workerResourceSpec));
 
-				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest())))
+				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest(workerResourceSpec))))
 					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
 
 				resourceManager.onContainersAllocated(ImmutableList.of(testingContainer));
@@ -512,9 +539,9 @@ public class YarnResourceManagerTest extends TestLogger {
 		new Context() {{
 			runTest(() -> {
 				registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
-				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource());
+				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource(workerResourceSpec));
 
-				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest())))
+				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest(workerResourceSpec))))
 					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
 
 				resourceManager.onContainersAllocated(ImmutableList.of(testingContainer));
@@ -578,6 +605,94 @@ public class YarnResourceManagerTest extends TestLogger {
 
 		new Context() {{
 			resourceManager.getCpuCores(configuration);
+		}};
+	}
+
+	@Test
+	public void testStartWorkerVariousSpec_SameContainerResource() throws Exception{
+		new Context() {{
+			runTest(() -> {
+				final WorkerResourceSpec workerResourceSpec1 = new WorkerResourceSpec(1, 100, 100, 100, 100);
+				final WorkerResourceSpec workerResourceSpec2 = new WorkerResourceSpec(1, 99, 100, 100, 100);
+				final Resource containerResource = resourceManager.getContainerResource(workerResourceSpec1);
+
+				// Make sure two worker resource spec will be normalized to the same container resource
+				assertEquals(containerResource, resourceManager.getContainerResource(workerResourceSpec2));
+
+				resourceManager.startNewWorker(workerResourceSpec1);
+				resourceManager.startNewWorker(workerResourceSpec2);
+
+				// Verify both containers requested
+				verifyContainerHasBeenRequested(containerResource, 2);
+
+				doReturn(Collections.singletonList(ImmutableList.of(
+					resourceManager.getContainerRequest(workerResourceSpec1),
+					resourceManager.getContainerRequest(workerResourceSpec2))))
+					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
+
+				// Mock that both containers are allocated
+				Container container1 = mockContainer("container1", 1234, 1, containerResource);
+				Container container2 = mockContainer("container2", 1234, 2, containerResource);
+				resourceManager.onContainersAllocated(ImmutableList.of(container1, container2));
+
+				// Verify workers with both spec are started.
+				verifyContainerHasBeenStartedWithCommandContainsString(TaskManagerOptions.TASK_HEAP_MEMORY.key() + "=" + (99L << 20));
+				verifyContainerHasBeenStartedWithCommandContainsString(TaskManagerOptions.TASK_HEAP_MEMORY.key() + "=" + (100L << 20));
+
+				// Mock that one container is completed, while the worker is still pending
+				resourceManager.pendingWorkerNums = Collections.singletonMap(workerResourceSpec1, 1);
+				ContainerStatus testingContainerStatus = mockContainerStatus(container1.getId());
+				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
+
+				// Verify that only one more container is requested.
+				verify(mockResourceManagerClient, VERIFICATION_TIMEOUT.times(3)).addContainerRequest(any(AMRMClient.ContainerRequest.class));
+			});
+		}};
+	}
+
+	@Test
+	public void testStartWorkerVariousSpec_DifferentContainerResource() throws Exception{
+		new Context() {{
+			runTest(() -> {
+				final WorkerResourceSpec workerResourceSpec1 = new WorkerResourceSpec(1, 100, 100, 100, 100);
+				final WorkerResourceSpec workerResourceSpec2 = new WorkerResourceSpec(10, 1000, 1000, 1000, 1000);
+				final Resource containerResource1 = resourceManager.getContainerResource(workerResourceSpec1);
+				final Resource containerResource2 = resourceManager.getContainerResource(workerResourceSpec2);
+
+				// Make sure two worker resource spec will be normalized to different container resources
+				assertNotEquals(containerResource1, containerResource2);
+
+				resourceManager.startNewWorker(workerResourceSpec1);
+				resourceManager.startNewWorker(workerResourceSpec2);
+
+				// Verify both containers requested
+				verifyContainerHasBeenRequested(containerResource1, 1);
+				verifyContainerHasBeenRequested(containerResource2, 1);
+
+				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest(workerResourceSpec1))))
+					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), eq(containerResource1));
+				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest(workerResourceSpec2))))
+					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), eq(containerResource2));
+
+				// Mock that container 1 is allocated
+				Container container1 = mockContainer("container1", 1234, 1, containerResource1);
+				resourceManager.onContainersAllocated(Collections.singletonList(container1));
+
+				// Verify that only worker with spec1 is started.
+				verifyContainerHasBeenStartedWithCommandContainsString(TaskManagerOptions.TASK_HEAP_MEMORY.key() + "=" + (100L << 20));
+
+				// Mock that container 2 is allocated
+				Container container2 = mockContainer("container2", 1234, 2, containerResource2);
+				resourceManager.onContainersAllocated(Collections.singletonList(container2));
+
+				// Mock that container 1 is completed, while the worker is still pending
+				resourceManager.pendingWorkerNums = Collections.singletonMap(workerResourceSpec1, 1);
+				ContainerStatus testingContainerStatus = mockContainerStatus(container1.getId());
+				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
+
+				// Verify that only container 1 is requested again
+				verifyContainerHasBeenRequested(containerResource1, 2);
+			});
 		}};
 	}
 
