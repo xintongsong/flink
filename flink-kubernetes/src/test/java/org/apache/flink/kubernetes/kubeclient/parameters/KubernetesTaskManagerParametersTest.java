@@ -72,7 +72,6 @@ public class KubernetesTaskManagerParametersTest {
 
 		this.kubernetesTaskManagerParameters = new KubernetesTaskManagerParameters(flinkConfig,
 			POD_NAME,
-			TASK_MANAGER_MEMORY,
 			DYNAMIC_PROPERTIES,
 			containeredTaskManagerParameters);
 	}
