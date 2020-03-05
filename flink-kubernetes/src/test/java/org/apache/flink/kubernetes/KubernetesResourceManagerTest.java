@@ -44,6 +44,7 @@ import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
+import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.resourcemanager.utils.MockResourceManagerRuntimeServices;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -55,6 +56,8 @@ import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorRegistrationSuccess;
 import org.apache.flink.runtime.taskexecutor.TestingTaskExecutorGatewayBuilder;
 import org.apache.flink.runtime.util.TestingFatalErrorHandler;
+
+import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableList;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerStateBuilder;
@@ -72,8 +75,11 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import javax.annotation.Nullable;
+
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -81,6 +87,7 @@ import java.util.stream.Collectors;
 import static junit.framework.TestCase.assertEquals;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
@@ -126,6 +133,8 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 	class TestingKubernetesResourceManager extends KubernetesResourceManager {
 
 		private final SlotManager slotManager;
+
+		@Nullable  private Map<WorkerResourceSpec, Integer> customPendingWorkerNums;
 
 		TestingKubernetesResourceManager(
 				RpcService rpcService,
@@ -175,6 +184,15 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 
 		SlotManager getSlotManager() {
 			return this.slotManager;
+		}
+
+		@Override
+		public Map<WorkerResourceSpec, Integer> getPendingWorkerNums() {
+			return customPendingWorkerNums != null ? customPendingWorkerNums : super.getPendingWorkerNums();
+		}
+
+		public void setCustomPendingWorkerNums(final Map<WorkerResourceSpec, Integer> customPendingWorkerNums) {
+			this.customPendingWorkerNums = customPendingWorkerNums;
 		}
 	}
 
@@ -319,6 +337,47 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 		configuration.setInteger(TaskManagerOptions.NUM_TASK_SLOTS, 3);
 
 		assertThat(resourceManager.getCpuCores(configuration), is(3.0));
+	}
+
+	@Test
+	public void testStartAndRecoverVariousResourceSpec() {
+		// Start two workers with different resources
+		final WorkerResourceSpec workerResourceSpec1 = new WorkerResourceSpec(1.0, 100, 100, 100, 100);
+		final WorkerResourceSpec workerResourceSpec2 = new WorkerResourceSpec(1.0, 99, 100, 100, 100);
+		resourceManager.startNewWorker(workerResourceSpec1);
+		resourceManager.startNewWorker(workerResourceSpec2);
+
+		// Verify two pods with both worker resources are started
+		final PodList initialPodList = kubeClient.pods().list();
+		assertEquals(2, initialPodList.getItems().size());
+		final Pod initialPod1 = getPodContainsStrInArgs(initialPodList, TaskManagerOptions.TASK_HEAP_MEMORY.key() + "=" + (100L << 20));
+		final Pod initialPod2 = getPodContainsStrInArgs(initialPodList, TaskManagerOptions.TASK_HEAP_MEMORY.key() + "=" + (99L << 20));
+
+		// Notify resource manager about pods added.
+		final KubernetesPod initialKubernetesPod1 = new KubernetesPod(initialPod1);
+		final KubernetesPod initialKubernetesPod2 = new KubernetesPod(initialPod2);
+		resourceManager.onAdded(ImmutableList.of(initialKubernetesPod1, initialKubernetesPod2));
+
+		// Terminate pod1.
+		terminatePod(initialPod1);
+		resourceManager.setCustomPendingWorkerNums(Collections.singletonMap(workerResourceSpec1, 1));
+		resourceManager.onModified(Collections.singletonList(initialKubernetesPod1));
+
+		// Verify original pod1 is removed, a new pod1 with the same worker resource is requested.
+		// Meantime, pod2 is not changes.
+		final PodList terminatedPodList = kubeClient.pods().list();
+		assertEquals(2, terminatedPodList.getItems().size());
+		assertFalse(terminatedPodList.getItems().contains(initialPod1));
+		assertTrue(terminatedPodList.getItems().contains(initialPod2));
+		getPodContainsStrInArgs(initialPodList, TaskManagerOptions.TASK_HEAP_MEMORY.key() + "=" + (100L << 20));
+	}
+
+	private Pod getPodContainsStrInArgs(final PodList podList, final String str) {
+		final Optional<Pod> podOpt = podList.getItems().stream()
+			.filter(pod -> pod.getSpec().getContainers().get(0).getArgs().stream().anyMatch(arg -> arg.contains(str)))
+			.findAny();
+		assertTrue(podOpt.isPresent());
+		return podOpt.get();
 	}
 
 	private TestingKubernetesResourceManager createAndStartResourceManager(Configuration configuration) throws Exception {
