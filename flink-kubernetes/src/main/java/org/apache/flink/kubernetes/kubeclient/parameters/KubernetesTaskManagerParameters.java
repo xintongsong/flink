@@ -41,8 +41,6 @@ public class KubernetesTaskManagerParameters extends AbstractKubernetesParameter
 
 	private final String podName;
 
-	private final int taskManagerMemoryMB;
-
 	private final String dynamicProperties;
 
 	private final ContaineredTaskManagerParameters containeredTaskManagerParameters;
@@ -50,12 +48,10 @@ public class KubernetesTaskManagerParameters extends AbstractKubernetesParameter
 	public KubernetesTaskManagerParameters(
 			Configuration flinkConfig,
 			String podName,
-			int taskManagerMemoryMB,
 			String dynamicProperties,
 			ContaineredTaskManagerParameters containeredTaskManagerParameters) {
 		super(flinkConfig);
 		this.podName = checkNotNull(podName);
-		this.taskManagerMemoryMB = taskManagerMemoryMB;
 		this.dynamicProperties = checkNotNull(dynamicProperties);
 		this.containeredTaskManagerParameters = checkNotNull(containeredTaskManagerParameters);
 	}
@@ -87,7 +83,7 @@ public class KubernetesTaskManagerParameters extends AbstractKubernetesParameter
 	}
 
 	public int getTaskManagerMemoryMB() {
-		return taskManagerMemoryMB;
+		return containeredTaskManagerParameters.getTaskExecutorProcessSpec().getTotalProcessMemorySize().getMebiBytes();
 	}
 
 	public double getTaskManagerCPU() {
