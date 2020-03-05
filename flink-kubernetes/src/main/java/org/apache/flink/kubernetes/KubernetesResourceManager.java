@@ -31,6 +31,7 @@ import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
@@ -46,7 +47,6 @@ import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerExcept
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
-import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,7 +56,7 @@ import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -72,8 +72,6 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	private final Map<ResourceID, KubernetesWorkerNode> workerNodes = new HashMap<>();
 
-	private final double defaultCpus;
-
 	/** When ResourceManager failover, the max attempt should recover. */
 	private long currentMaxAttemptId = 0;
 
@@ -84,10 +82,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	private final FlinkKubeClient kubeClient;
 
-	private final ContaineredTaskManagerParameters taskManagerParameters;
-
-	/** The number of pods requested, but not yet granted. */
-	private int numPendingPodRequests = 0;
+	/** Map from pod name to worker resource. */
+	private final Map<String, WorkerResourceSpec> podWorkerResources;
 
 	public KubernetesResourceManager(
 			RpcService rpcService,
@@ -117,12 +113,10 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			fatalErrorHandler,
 			resourceManagerMetricGroup);
 		this.clusterId = flinkConfig.getString(KubernetesConfigOptions.CLUSTER_ID);
-		this.defaultCpus = taskExecutorProcessSpec.getCpuCores().getValue().doubleValue();
 
 		this.kubeClient = createFlinkKubeClient();
 
-		this.taskManagerParameters =
-			ContaineredTaskManagerParameters.create(flinkConfig, taskExecutorProcessSpec);
+		this.podWorkerResources = new HashMap<>();
 	}
 
 	@Override
@@ -162,11 +156,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	@Override
 	public boolean startNewWorker(WorkerResourceSpec workerResourceSpec) {
-		Preconditions.checkArgument(Objects.equals(
-			workerResourceSpec,
-			WorkerResourceSpec.fromTaskExecutorProcessSpec(taskExecutorProcessSpec)));
 		LOG.info("Starting new worker with worker resource spec, {}", workerResourceSpec);
-		requestKubernetesPod();
+		requestKubernetesPod(workerResourceSpec);
 		return true;
 	}
 
@@ -178,7 +169,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	@Override
 	public boolean stopWorker(final KubernetesWorkerNode worker) {
 		LOG.info("Stopping Worker {}.", worker.getResourceID());
-		workerNodes.remove(worker.getResourceID());
+		removeWorkerNodeAndResourceSpec(worker.getResourceID());
 		try {
 			kubeClient.stopPod(worker.getResourceID().toString());
 		} catch (Exception e) {
@@ -192,15 +183,17 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	public void onAdded(List<KubernetesPod> pods) {
 		runAsync(() -> {
 			for (KubernetesPod pod : pods) {
-				if (numPendingPodRequests > 0) {
-					numPendingPodRequests--;
+				WorkerResourceSpec workerResourceSpec = podWorkerResources.get(pod.getName());
+				final int pendingNum = getNumPendingWorkersFor(workerResourceSpec);
+				if (pendingNum > 0) {
+					notifyNewWorkerAllocated(workerResourceSpec);
 					final KubernetesWorkerNode worker = new KubernetesWorkerNode(new ResourceID(pod.getName()));
 					workerNodes.putIfAbsent(worker.getResourceID(), worker);
 				}
-
-				log.info("Received new TaskManager pod: {} - Remaining pending pod requests: {}",
-					pod.getName(), numPendingPodRequests);
+				log.info("Received new TaskManager pod: {}", pod.getName());
 			}
+			log.info("Received {} new TaskManager pods. Remaining pending pod requests: {}",
+				pods.size(), getNumPendingWorkers());
 		});
 	}
 
@@ -240,13 +233,27 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			++currentMaxAttemptId);
 	}
 
-	private void requestKubernetesPod() {
-		numPendingPodRequests++;
+	private void requestKubernetesPod(WorkerResourceSpec workerResourceSpec) {
+		final KubernetesTaskManagerParameters parameters =
+			createKubernetesTaskManagerParameters(workerResourceSpec);
+
+		final KubernetesPod taskManagerPod =
+			KubernetesTaskManagerFactory.createTaskManagerComponent(parameters);
+		kubeClient.createTaskManagerPod(taskManagerPod);
+
+		podWorkerResources.put(parameters.getPodName(), workerResourceSpec);
+		final int pendingWorkerNum = notifyNewWorkerRequested(workerResourceSpec);
 
 		log.info("Requesting new TaskManager pod with <{},{}>. Number pending requests {}.",
-			defaultMemoryMB,
-			defaultCpus,
-			numPendingPodRequests);
+			parameters.getTaskManagerMemoryMB(),
+			parameters.getTaskManagerCPU(),
+			pendingWorkerNum);
+		log.info("TaskManager {} will be started with {}.", parameters.getPodName(), workerResourceSpec);
+	}
+
+	private KubernetesTaskManagerParameters createKubernetesTaskManagerParameters(WorkerResourceSpec workerResourceSpec) {
+		final TaskExecutorProcessSpec taskExecutorProcessSpec =
+			TaskExecutorProcessUtils.processSpecFromWorkerResourceSpec(flinkConfig, workerResourceSpec);
 
 		final String podName = String.format(
 			TASK_MANAGER_POD_FORMAT,
@@ -254,41 +261,43 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			currentMaxAttemptId,
 			++currentMaxPodId);
 
+		final ContaineredTaskManagerParameters taskManagerParameters =
+			ContaineredTaskManagerParameters.create(flinkConfig, taskExecutorProcessSpec);
+
 		final String dynamicProperties =
 			BootstrapTools.getDynamicPropertiesAsString(flinkClientConfig, flinkConfig);
 
-		final KubernetesTaskManagerParameters kubernetesTaskManagerParameters = new KubernetesTaskManagerParameters(
+		return new KubernetesTaskManagerParameters(
 			flinkConfig,
 			podName,
 			dynamicProperties,
 			taskManagerParameters);
-
-		final KubernetesPod taskManagerPod =
-			KubernetesTaskManagerFactory.createTaskManagerComponent(kubernetesTaskManagerParameters);
-
-		log.info("TaskManager {} will be started with {}.", podName, taskExecutorProcessSpec);
-		kubeClient.createTaskManagerPod(taskManagerPod);
 	}
 
 	/**
 	 * Request new pod if pending pods cannot satisfy pending slot requests.
 	 */
-	private void requestKubernetesPodIfRequired() {
-		int requiredTaskManagers = getNumberRequiredWorkers();
+	private void requestKubernetesPodIfRequired(WorkerResourceSpec workerResourceSpec) {
+		final int pendingWorkerNum = getNumPendingWorkersFor(workerResourceSpec);
+		int requiredTaskManagers = getNumberRequiredWorkersPerWorkerResourceSpec().get(workerResourceSpec);
 
-		while (requiredTaskManagers-- > numPendingPodRequests) {
-			requestKubernetesPod();
+		while (requiredTaskManagers-- > pendingWorkerNum) {
+			requestKubernetesPod(workerResourceSpec);
 		}
 	}
 
 	private void removePodIfTerminated(KubernetesPod pod) {
 		if (pod.isTerminated()) {
 			kubeClient.stopPod(pod.getName());
-			final KubernetesWorkerNode kubernetesWorkerNode = workerNodes.remove(new ResourceID(pod.getName()));
-			if (kubernetesWorkerNode != null) {
-				requestKubernetesPodIfRequired();
-			}
+			removeWorkerNodeAndResourceSpec(new ResourceID(pod.getName())).ifPresent(this::requestKubernetesPodIfRequired);
 		}
+	}
+
+	private Optional<WorkerResourceSpec> removeWorkerNodeAndResourceSpec(ResourceID resourceId) {
+		final KubernetesWorkerNode kubernetesWorkerNode = workerNodes.remove(resourceId);
+		return kubernetesWorkerNode != null ?
+			Optional.of(podWorkerResources.remove(resourceId.toString())) :
+			Optional.empty();
 	}
 
 	protected FlinkKubeClient createFlinkKubeClient() {
