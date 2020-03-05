@@ -18,7 +18,12 @@
 
 package org.apache.flink.runtime.resourcemanager.slotmanager;
 
+import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
+
+import java.util.Collections;
+import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Factory for {@link TestingSlotManager}.
@@ -26,13 +31,19 @@ import java.util.function.Consumer;
 public class TestingSlotManagerBuilder {
 
 	private Consumer<Boolean> setFailUnfulfillableRequestConsumer = ignored -> {};
+	private Supplier<Map<WorkerResourceSpec, Integer>> getPendingWorkerNumsSupplier = () -> Collections.emptyMap();
 
 	public TestingSlotManagerBuilder setSetFailUnfulfillableRequestConsumer(Consumer<Boolean> setFailUnfulfillableRequestConsumer) {
 		this.setFailUnfulfillableRequestConsumer = setFailUnfulfillableRequestConsumer;
 		return this;
 	}
 
+	public TestingSlotManagerBuilder setGetPendingWorkerNumsSupplier(Supplier<Map<WorkerResourceSpec, Integer>> getPendingWorkerNumsSupplier) {
+		this.getPendingWorkerNumsSupplier = getPendingWorkerNumsSupplier;
+		return this;
+	}
+
 	public TestingSlotManager createSlotManager() {
-		return new TestingSlotManager(setFailUnfulfillableRequestConsumer);
+		return new TestingSlotManager(setFailUnfulfillableRequestConsumer, getPendingWorkerNumsSupplier);
 	}
 }
