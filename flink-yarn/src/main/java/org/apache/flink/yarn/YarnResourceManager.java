@@ -26,6 +26,7 @@ import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
+import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
@@ -43,6 +44,7 @@ import org.apache.flink.runtime.webmonitor.history.HistoryServerUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
+import org.apache.flink.yarn.configuration.YarnConfigOptionsInternal;
 
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
@@ -68,6 +70,8 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +79,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 
 /**
  * The yarn implementation of the resource manager. Used when the system is started
@@ -118,6 +123,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	private int numPendingContainerRequests;
 
 	private final Resource resource;
+
+	private final WorkerSpecContainerResourceAdapter workerSpecContainerResourceAdapter;
 
 	public YarnResourceManager(
 			RpcService rpcService,
@@ -166,6 +173,16 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 		this.webInterfaceUrl = webInterfaceUrl;
 		this.resource = Resource.newInstance(defaultMemoryMB, taskExecutorProcessSpec.getCpuCores().getValue().intValue());
+
+		this.workerSpecContainerResourceAdapter = new WorkerSpecContainerResourceAdapter(
+			flinkConfig,
+			yarnConfig.getInt(
+				YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB,
+				YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_MB),
+			yarnConfig.getInt(
+				YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES,
+				YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES),
+			flinkConfig.getBoolean(YarnConfigOptionsInternal.MATCH_CONTAINER_VCORES));
 	}
 
 	protected AMRMClientAsync<AMRMClient.ContainerRequest> createAndStartResourceManagerClient(
@@ -614,5 +631,86 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		}
 		//noinspection NumericCastThatLosesPrecision
 		return cpuCoresLong;
+	}
+
+	/**
+	 * Utility class for converting between Flink {@link WorkerResourceSpec} and Yarn {@link Resource}.
+	 */
+	@VisibleForTesting
+	static class WorkerSpecContainerResourceAdapter {
+		private final Configuration flinkConfig;
+		private final int minMemMB;
+		private final int minVcore;
+		private final boolean matchVcores;
+		private final Map<WorkerResourceSpec, Resource> workerSpecToContainerResource;
+		private final Map<Resource, Collection<WorkerResourceSpec>> containerResourceToWorkerSpecs;
+		private final Map<Integer, Collection<Resource>> containerMemoryToContainerResource;
+
+		@VisibleForTesting
+		WorkerSpecContainerResourceAdapter(
+				final Configuration flinkConfig,
+				final int minMemMB,
+				final int minVcore,
+				final boolean matchVcores) {
+			this.flinkConfig = Preconditions.checkNotNull(flinkConfig);
+			this.minMemMB = minMemMB;
+			this.minVcore = minVcore;
+			this.matchVcores = matchVcores;
+			workerSpecToContainerResource = new HashMap<>();
+			containerResourceToWorkerSpecs = new HashMap<>();
+			containerMemoryToContainerResource = new HashMap<>();
+		}
+
+		@VisibleForTesting
+		Resource getContainerResource(final WorkerResourceSpec workerResourceSpec) {
+			return workerSpecToContainerResource.computeIfAbsent(
+				Preconditions.checkNotNull(workerResourceSpec),
+				this::createAndMapContainerResource);
+		}
+
+		@VisibleForTesting
+		Collection<WorkerResourceSpec> getWorkerSpecs(final Resource containerResource) {
+			return getEquivalentContainerResource(containerResource).stream()
+				.flatMap(resource -> containerResourceToWorkerSpecs.getOrDefault(resource, Collections.emptyList()).stream())
+				.collect(Collectors.toList());
+		}
+
+		@VisibleForTesting
+		Collection<Resource> getEquivalentContainerResource(final Resource containerResource) {
+			// Yarn might ignore the requested vcores, depending on its configurations.
+			// In such cases, we should also not matching vcores.
+			return matchVcores ?
+				Collections.singletonList(containerResource) :
+				containerMemoryToContainerResource.getOrDefault(containerResource.getMemory(), Collections.emptyList());
+		}
+
+		private Resource createAndMapContainerResource(final WorkerResourceSpec workerResourceSpec) {
+			// TODO: need to unset process/flink memory size from configuration if dynamic worker resource is activated
+			final TaskExecutorProcessSpec taskExecutorProcessSpec =
+				TaskExecutorProcessUtils.processSpecFromWorkerResourceSpec(flinkConfig, workerResourceSpec);
+			final Resource containerResource = Resource.newInstance(
+				normalize(taskExecutorProcessSpec.getTotalProcessMemorySize().getMebiBytes(), minMemMB),
+				normalize(taskExecutorProcessSpec.getCpuCores().getValue().intValue(), minVcore));
+			containerResourceToWorkerSpecs.computeIfAbsent(containerResource, ignored -> new ArrayList<>())
+				.add(workerResourceSpec);
+			containerMemoryToContainerResource.computeIfAbsent(containerResource.getMemory(), ignored -> new HashSet<>())
+				.add(containerResource);
+			return containerResource;
+		}
+
+		/**
+		 * Normalize to the minimum integer that is greater or equal to 'value' and is integer multiple of 'unitValue'.
+		 */
+		private int normalize(final int value, final int unitValue) {
+			if (value < unitValue) {
+				return unitValue;
+			}
+
+			if (value % unitValue == 0) {
+				return value;
+			}
+
+			return (value / unitValue + 1) * unitValue;
+		}
 	}
 }

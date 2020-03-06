@@ -43,6 +43,7 @@ import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
+import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.resourcemanager.utils.MockResourceManagerRuntimeServices;
@@ -70,6 +71,7 @@ import org.apache.hadoop.yarn.api.records.ContainerState;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.Priority;
+import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
@@ -106,6 +108,10 @@ import static org.apache.flink.yarn.YarnConfigKeys.ENV_HADOOP_USER_NAME;
 import static org.apache.flink.yarn.YarnConfigKeys.FLINK_JAR_PATH;
 import static org.apache.flink.yarn.YarnConfigKeys.FLINK_YARN_FILES;
 import static org.apache.flink.yarn.YarnResourceManager.ERROR_MASSAGE_ON_SHUTDOWN_REQUEST;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
@@ -582,6 +588,85 @@ public class YarnResourceManagerTest extends TestLogger {
 		new Context() {{
 			resourceManager.getCpuCores(configuration);
 		}};
+	}
+
+	@Test
+	public void testWorkerSpecContainerResourceAdapter_MatchVcores() {
+		final int minMemMB = 100;
+		final int minVcore = 10;
+		final YarnResourceManager.WorkerSpecContainerResourceAdapter adapter =
+			new YarnResourceManager.WorkerSpecContainerResourceAdapter(
+				getConfigProcessSpecEqualsWorkerSpec(), minMemMB, minVcore, true);
+
+		final WorkerResourceSpec workerSpec1 = new WorkerResourceSpec(1.0, 10, 10, 10, 10);
+		final WorkerResourceSpec workerSpec2 = new WorkerResourceSpec(10.0, 25, 25, 25, 25);
+		final WorkerResourceSpec workerSpec3 = new WorkerResourceSpec(5.0, 30, 30, 30, 30);
+		final WorkerResourceSpec workerSpec4 = new WorkerResourceSpec(15.0, 10, 10, 10, 10);
+
+		final Resource containerResource1 = Resource.newInstance(100, 10);
+		final Resource containerResource2 = Resource.newInstance(200, 10);
+		final Resource containerResource3 = Resource.newInstance(100, 20);
+
+		assertThat(adapter.getWorkerSpecs(containerResource1), empty());
+		assertThat(adapter.getWorkerSpecs(containerResource2), empty());
+
+		assertThat(adapter.getContainerResource(workerSpec1), is(containerResource1));
+		assertThat(adapter.getContainerResource(workerSpec2), is(containerResource1));
+		assertThat(adapter.getContainerResource(workerSpec3), is(containerResource2));
+		assertThat(adapter.getContainerResource(workerSpec4), is(containerResource3));
+
+		assertThat(adapter.getWorkerSpecs(containerResource1), hasSize(2));
+		assertThat(adapter.getWorkerSpecs(containerResource2), hasSize(1));
+		assertThat(adapter.getWorkerSpecs(containerResource3), hasSize(1));
+		assertThat(adapter.getWorkerSpecs(containerResource1), containsInAnyOrder(workerSpec1, workerSpec2));
+		assertThat(adapter.getWorkerSpecs(containerResource2), contains(workerSpec3));
+		assertThat(adapter.getWorkerSpecs(containerResource3), contains(workerSpec4));
+	}
+
+	@Test
+	public void testWorkerSpecContainerResourceAdapter_NotMatchVcores() {
+		final int minMemMB = 100;
+		final int minVcore = 1;
+		final YarnResourceManager.WorkerSpecContainerResourceAdapter adapter =
+			new YarnResourceManager.WorkerSpecContainerResourceAdapter(
+				getConfigProcessSpecEqualsWorkerSpec(), minMemMB, minVcore, false);
+
+		final WorkerResourceSpec workerSpec1 = new WorkerResourceSpec(5.0, 10, 10, 10, 10);
+		final WorkerResourceSpec workerSpec2 = new WorkerResourceSpec(10.0, 10, 10, 10, 10);
+		final WorkerResourceSpec workerSpec3 = new WorkerResourceSpec(5.0, 25, 25, 25, 25);
+		final WorkerResourceSpec workerSpec4 = new WorkerResourceSpec(5.0, 30, 30, 30, 30);
+
+		final Resource containerResource1 = Resource.newInstance(100, 5);
+		final Resource containerResource2 = Resource.newInstance(100, 10);
+		final Resource containerResource3 = Resource.newInstance(200, 5);
+
+		final Resource containerResource4 = Resource.newInstance(100, 1);
+		final Resource containerResource5 = Resource.newInstance(200, 1);
+
+		assertThat(adapter.getContainerResource(workerSpec1), is(containerResource1));
+		assertThat(adapter.getContainerResource(workerSpec2), is(containerResource2));
+		assertThat(adapter.getContainerResource(workerSpec3), is(containerResource1));
+		assertThat(adapter.getContainerResource(workerSpec4), is(containerResource3));
+
+		assertThat(adapter.getEquivalentContainerResource(containerResource4), hasSize(2));
+		assertThat(adapter.getEquivalentContainerResource(containerResource5), hasSize(1));
+		assertThat(adapter.getEquivalentContainerResource(containerResource4), containsInAnyOrder(containerResource1, containerResource2));
+		assertThat(adapter.getEquivalentContainerResource(containerResource5), contains(containerResource3));
+
+		assertThat(adapter.getWorkerSpecs(containerResource4), hasSize(3));
+		assertThat(adapter.getWorkerSpecs(containerResource5), hasSize(1));
+		assertThat(adapter.getWorkerSpecs(containerResource4), containsInAnyOrder(workerSpec1, workerSpec2, workerSpec3));
+		assertThat(adapter.getWorkerSpecs(containerResource5), contains(workerSpec4));
+	}
+
+	private Configuration getConfigProcessSpecEqualsWorkerSpec() {
+		final Configuration config = new Configuration();
+		config.set(TaskManagerOptions.FRAMEWORK_HEAP_MEMORY, MemorySize.ZERO);
+		config.set(TaskManagerOptions.FRAMEWORK_OFF_HEAP_MEMORY, MemorySize.ZERO);
+		config.set(TaskManagerOptions.JVM_METASPACE, MemorySize.ZERO);
+		config.set(TaskManagerOptions.JVM_OVERHEAD_MIN, MemorySize.ZERO);
+		config.set(TaskManagerOptions.JVM_OVERHEAD_MAX, MemorySize.ZERO);
+		return config;
 	}
 
 	private void registerSlotRequest(
