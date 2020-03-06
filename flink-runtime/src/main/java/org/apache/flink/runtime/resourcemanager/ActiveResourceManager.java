@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.resourcemanager;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
@@ -33,9 +34,11 @@ import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.util.FlinkException;
+import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nullable;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -60,6 +63,8 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 
 	/** Flink configuration uploaded by client. */
 	protected final Configuration flinkClientConfig;
+
+	protected final PendingWorkerCounter pendingWorkerCounter;
 
 	public ActiveResourceManager(
 			Configuration flinkConfig,
@@ -98,6 +103,8 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 
 		// Load the flink config uploaded by flink client
 		this.flinkClientConfig = loadClientConfiguration();
+
+		pendingWorkerCounter = new PendingWorkerCounter();
 	}
 
 	protected CompletableFuture<Void> getStopTerminationFutureOrCompletedExceptionally(@Nullable Throwable exception) {
@@ -114,4 +121,41 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	protected abstract Configuration loadClientConfiguration();
 
 	protected abstract double getCpuCores(final Configuration configuration);
+
+	/**
+	 * Utility class for counting pending workers per {@link WorkerResourceSpec}.
+	 */
+	protected static class PendingWorkerCounter {
+		private final Map<WorkerResourceSpec, Integer> pendingWorkerNums;
+
+		@VisibleForTesting
+		PendingWorkerCounter() {
+			pendingWorkerNums = new HashMap<>();
+		}
+
+		public int getTotalNum() {
+			return pendingWorkerNums.values().stream().reduce(0, Integer::sum);
+		}
+
+		public int getNum(final WorkerResourceSpec workerResourceSpec) {
+			return pendingWorkerNums.getOrDefault(Preconditions.checkNotNull(workerResourceSpec), 0);
+		}
+
+		public int increaseAndGet(final WorkerResourceSpec workerResourceSpec) {
+			return pendingWorkerNums.compute(
+				Preconditions.checkNotNull(workerResourceSpec),
+				(ignored, num) -> num != null ? num + 1 : 1);
+		}
+
+		public int decreaseAndGet(final WorkerResourceSpec workerResourceSpec) {
+			final Integer newValue = pendingWorkerNums.compute(
+				Preconditions.checkNotNull(workerResourceSpec),
+				(ignored, num) -> {
+					Preconditions.checkNotNull(num);
+					Preconditions.checkState(num > 0);
+					return num == 1 ? null : num - 1;
+				});
+			return newValue != null ? newValue : 0;
+		}
+	}
 }
