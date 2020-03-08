@@ -336,26 +336,16 @@ public class YarnResourceManagerTest extends TestLogger {
 		void verifyContainerHasBeenRequested() {
 			verify(mockResourceManagerClient, VERIFICATION_TIMEOUT).addContainerRequest(any(AMRMClient.ContainerRequest.class));
 		}
-	}
 
-	private static Container mockContainer(String host, int port, int containerId, Resource resource) {
-		Container mockContainer = mock(Container.class);
-
-		NodeId mockNodeId = NodeId.newInstance(host, port);
-		ContainerId mockContainerId = ContainerId.newInstance(
-			ApplicationAttemptId.newInstance(
-				ApplicationId.newInstance(System.currentTimeMillis(), 1),
-				1
-			),
-			containerId
-		);
-
-		when(mockContainer.getId()).thenReturn(mockContainerId);
-		when(mockContainer.getNodeId()).thenReturn(mockNodeId);
-		when(mockContainer.getResource()).thenReturn(resource);
-		when(mockContainer.getPriority()).thenReturn(Priority.UNDEFINED);
-
-		return mockContainer;
+		Container createTestingContainer() {
+			final ContainerId containerId = ContainerId.newInstance(
+				ApplicationAttemptId.newInstance(
+					ApplicationId.newInstance(System.currentTimeMillis(), 1),
+					1),
+				1);
+			final NodeId nodeId = NodeId.newInstance("container", 1234);
+			return new TestingContainer(containerId, nodeId, resourceManager.getContainerResource(), Priority.UNDEFINED);
+		}
 	}
 
 	private static ContainerStatus mockContainerStatus(ContainerId containerId) {
@@ -392,7 +382,7 @@ public class YarnResourceManagerTest extends TestLogger {
 				registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
 
 				// Callback from YARN when container is allocated.
-				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource());
+				Container testingContainer = createTestingContainer();
 
 				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest())))
 					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
@@ -490,7 +480,7 @@ public class YarnResourceManagerTest extends TestLogger {
 				registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
 
 				// Callback from YARN when container is allocated.
-				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource());
+				Container testingContainer = createTestingContainer();
 
 				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest())))
 					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
@@ -519,7 +509,7 @@ public class YarnResourceManagerTest extends TestLogger {
 		new Context() {{
 			runTest(() -> {
 				registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
-				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource());
+				Container testingContainer = createTestingContainer();
 
 				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest())))
 					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
