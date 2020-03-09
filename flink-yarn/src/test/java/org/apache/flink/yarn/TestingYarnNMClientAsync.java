@@ -21,6 +21,7 @@ package org.apache.flink.yarn;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.util.Preconditions;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
@@ -58,5 +59,24 @@ class TestingYarnNMClientAsync extends NMClientAsyncImpl {
 
 	void setStopContainerAsyncConsumer(Consumer<Tuple3<ContainerId, NodeId, CallbackHandler>> stopContainerAsyncConsumer) {
 		this.stopContainerAsyncConsumer = Preconditions.checkNotNull(stopContainerAsyncConsumer);
+	}
+
+	// ------------------------------------------------------------------------
+	//  Override lifecycle methods to avoid actually starting the service
+	// ------------------------------------------------------------------------
+
+	@Override
+	protected void serviceInit(Configuration conf) throws Exception {
+		// noop
+	}
+
+	@Override
+	protected void serviceStart() throws Exception {
+		// noop
+	}
+
+	@Override
+	protected void serviceStop() throws Exception {
+		// noop
 	}
 }
