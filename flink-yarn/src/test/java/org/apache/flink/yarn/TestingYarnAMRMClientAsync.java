@@ -22,6 +22,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple4;
 import org.apache.flink.util.Preconditions;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
@@ -89,5 +90,24 @@ public class TestingYarnAMRMClientAsync extends AMRMClientAsyncImpl<AMRMClient.C
 	void setReleaseAssignedContainerConsumer(
 		Consumer<Tuple2<ContainerId, CallbackHandler>> releaseAssignedContainerConsumer) {
 		this.releaseAssignedContainerConsumer = Preconditions.checkNotNull(releaseAssignedContainerConsumer);
+	}
+
+	// ------------------------------------------------------------------------
+	//  Override lifecycle methods to avoid actually starting the service
+	// ------------------------------------------------------------------------
+
+	@Override
+	protected void serviceInit(Configuration conf) throws Exception {
+		// noop
+	}
+
+	@Override
+	protected void serviceStart() throws Exception {
+		// noop
+	}
+
+	@Override
+	protected void serviceStop() throws Exception {
+		// noop
 	}
 }
