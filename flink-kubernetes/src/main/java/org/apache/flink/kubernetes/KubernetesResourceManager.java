@@ -303,9 +303,4 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	protected FlinkKubeClient createFlinkKubeClient() {
 		return KubeClientFactory.fromConfiguration(flinkConfig);
 	}
-
-	@Override
-	protected double getCpuCores(Configuration configuration) {
-		return TaskExecutorProcessUtils.getCpuCoresWithFallbackConfigOption(configuration, KubernetesConfigOptions.TASK_MANAGER_CPU);
-	}
 }
