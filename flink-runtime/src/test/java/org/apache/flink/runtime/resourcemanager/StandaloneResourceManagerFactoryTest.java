@@ -42,7 +42,7 @@ public class StandaloneResourceManagerFactoryTest extends TestLogger {
 
 	@Test
 	public void createResourceManager_WithLessMemoryThanContainerizedHeapCutoffMin_ShouldSucceed() throws Exception {
-		final StandaloneResourceManagerFactory resourceManagerFactory = StandaloneResourceManagerFactory.INSTANCE;
+		final StandaloneResourceManagerFactory resourceManagerFactory = StandaloneResourceManagerFactory.getInstance();
 
 		final TestingRpcService rpcService = new TestingRpcService();
 		try {
