@@ -20,6 +20,8 @@ package org.apache.flink.runtime.resourcemanager;
 
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
+import org.apache.flink.runtime.metrics.MetricRegistry;
+import org.apache.flink.runtime.metrics.groups.SlotManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManagerImpl;
 import org.apache.flink.util.Preconditions;
@@ -50,9 +52,11 @@ public class ResourceManagerRuntimeServices {
 	public static ResourceManagerRuntimeServices fromConfiguration(
 			ResourceManagerRuntimeServicesConfiguration configuration,
 			HighAvailabilityServices highAvailabilityServices,
-			ScheduledExecutor scheduledExecutor) {
+			ScheduledExecutor scheduledExecutor,
+			MetricRegistry metricRegistry,
+			String hostname) {
 
-		final SlotManager slotManager = createSlotManager(configuration, scheduledExecutor);
+		final SlotManager slotManager = createSlotManager(configuration, scheduledExecutor, metricRegistry, hostname);
 
 		final JobLeaderIdService jobLeaderIdService = new JobLeaderIdService(
 			highAvailabilityServices,
@@ -62,7 +66,15 @@ public class ResourceManagerRuntimeServices {
 		return new ResourceManagerRuntimeServices(slotManager, jobLeaderIdService);
 	}
 
-	private static SlotManager createSlotManager(ResourceManagerRuntimeServicesConfiguration configuration, ScheduledExecutor scheduledExecutor) {
-		return new SlotManagerImpl(scheduledExecutor, configuration.getSlotManagerConfiguration());
+	private static SlotManager createSlotManager(
+			ResourceManagerRuntimeServicesConfiguration configuration,
+			ScheduledExecutor scheduledExecutor,
+			MetricRegistry metricRegistry,
+			String hostname) {
+		final SlotManagerMetricGroup slotManagerMetricGroup = SlotManagerMetricGroup.create(metricRegistry, hostname);
+		return new SlotManagerImpl(
+			scheduledExecutor,
+			configuration.getSlotManagerConfiguration(),
+			slotManagerMetricGroup);
 	}
 }

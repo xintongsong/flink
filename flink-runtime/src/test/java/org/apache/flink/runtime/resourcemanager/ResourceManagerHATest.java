@@ -25,6 +25,7 @@ import org.apache.flink.runtime.heartbeat.TestingHeartbeatServices;
 import org.apache.flink.runtime.highavailability.TestingHighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.NoOpResourceManagerPartitionTracker;
 import org.apache.flink.runtime.leaderelection.TestingLeaderElectionService;
+import org.apache.flink.runtime.metrics.NoOpMetricRegistry;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.resourcemanager.slotmanager.AnyMatchingSlotMatchingStrategy;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManagerConfiguration;
@@ -78,7 +79,9 @@ public class ResourceManagerHATest extends TestLogger {
 		ResourceManagerRuntimeServices resourceManagerRuntimeServices = ResourceManagerRuntimeServices.fromConfiguration(
 			resourceManagerRuntimeServicesConfiguration,
 			highAvailabilityServices,
-			rpcService.getScheduledExecutor());
+			rpcService.getScheduledExecutor(),
+			NoOpMetricRegistry.INSTANCE,
+			"localhost");
 
 		TestingFatalErrorHandler testingFatalErrorHandler = new TestingFatalErrorHandler();
 
