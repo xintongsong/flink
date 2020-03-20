@@ -28,9 +28,9 @@ import org.apache.flink.runtime.registration.RetryingRegistrationConfiguration;
 import org.apache.flink.runtime.state.TaskExecutorLocalStateStoresManager;
 import org.apache.flink.runtime.taskexecutor.slot.TestingTaskSlotTable;
 import org.apache.flink.runtime.taskexecutor.slot.TaskSlotTable;
-import org.apache.flink.runtime.taskmanager.LocalTaskManagerLocation;
+import org.apache.flink.runtime.taskmanager.LocalTaskManagerUnresolvedLocation;
 import org.apache.flink.runtime.taskmanager.Task;
-import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
+import org.apache.flink.runtime.taskmanager.TaskManagerUnresolvedLocation;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -42,7 +42,7 @@ import static org.mockito.Mockito.mock;
 public class TaskManagerServicesBuilder {
 
 	/** TaskManager services. */
-	private TaskManagerLocation taskManagerLocation;
+	private TaskManagerUnresolvedLocation taskManagerUnresolvedLocation;
 	private IOManager ioManager;
 	private ShuffleEnvironment<?, ?> shuffleEnvironment;
 	private KvStateService kvStateService;
@@ -54,7 +54,7 @@ public class TaskManagerServicesBuilder {
 	private TaskEventDispatcher taskEventDispatcher;
 
 	public TaskManagerServicesBuilder() {
-		taskManagerLocation = new LocalTaskManagerLocation();
+		taskManagerUnresolvedLocation = new LocalTaskManagerUnresolvedLocation();
 		ioManager = mock(IOManager.class);
 		shuffleEnvironment = mock(ShuffleEnvironment.class);
 		kvStateService = new KvStateService(new KvStateRegistry(), null, null);
@@ -62,12 +62,12 @@ public class TaskManagerServicesBuilder {
 		taskEventDispatcher = new TaskEventDispatcher();
 		taskSlotTable = TestingTaskSlotTable.<Task>newBuilder().closeAsyncReturns(CompletableFuture.completedFuture(null)).build();
 		jobManagerTable = new JobManagerTable();
-		jobLeaderService = new JobLeaderService(taskManagerLocation, RetryingRegistrationConfiguration.defaultConfiguration());
+		jobLeaderService = new JobLeaderService(taskManagerUnresolvedLocation, RetryingRegistrationConfiguration.defaultConfiguration());
 		taskStateManager = mock(TaskExecutorLocalStateStoresManager.class);
 	}
 
-	public TaskManagerServicesBuilder setTaskManagerLocation(TaskManagerLocation taskManagerLocation) {
-		this.taskManagerLocation = taskManagerLocation;
+	public TaskManagerServicesBuilder setTaskManagerUnresolvedLocation(TaskManagerUnresolvedLocation taskManagerUnresolvedLocation) {
+		this.taskManagerUnresolvedLocation = taskManagerUnresolvedLocation;
 		return this;
 	}
 
@@ -113,7 +113,7 @@ public class TaskManagerServicesBuilder {
 
 	public TaskManagerServices build() {
 		return new TaskManagerServices(
-			taskManagerLocation,
+			taskManagerUnresolvedLocation,
 			MemoryManager.MIN_PAGE_SIZE,
 			ioManager,
 			shuffleEnvironment,

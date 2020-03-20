@@ -87,6 +87,7 @@ import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.slot.SlotOffer;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
+import org.apache.flink.runtime.taskmanager.TaskManagerUnresolvedLocation;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.InstantiationUtil;
@@ -571,8 +572,15 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 	@Override
 	public CompletableFuture<RegistrationResponse> registerTaskManager(
 			final String taskManagerRpcAddress,
-			final TaskManagerLocation taskManagerLocation,
+			final TaskManagerUnresolvedLocation taskManagerUnresolvedLocation,
 			final Time timeout) {
+
+		final TaskManagerLocation taskManagerLocation;
+		try {
+			taskManagerLocation = TaskManagerLocation.fromUnresolvedLocation(taskManagerUnresolvedLocation);
+		} catch (Throwable throwable) {
+			return CompletableFuture.completedFuture(new RegistrationResponse.Decline(throwable.getMessage()));
+		}
 
 		final ResourceID taskManagerId = taskManagerLocation.getResourceID();
 

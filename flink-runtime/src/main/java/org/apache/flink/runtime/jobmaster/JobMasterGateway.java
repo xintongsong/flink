@@ -43,7 +43,7 @@ import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.taskexecutor.AccumulatorReport;
 import org.apache.flink.runtime.taskexecutor.slot.SlotOffer;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
-import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
+import org.apache.flink.runtime.taskmanager.TaskManagerUnresolvedLocation;
 
 import javax.annotation.Nullable;
 
@@ -167,13 +167,13 @@ public interface JobMasterGateway extends
 	 * Registers the task manager at the job manager.
 	 *
 	 * @param taskManagerRpcAddress the rpc address of the task manager
-	 * @param taskManagerLocation   location of the task manager
+	 * @param taskManagerUnresolvedLocation   location of the task manager
 	 * @param timeout               for the rpc call
 	 * @return Future registration response indicating whether the registration was successful or not
 	 */
 	CompletableFuture<RegistrationResponse> registerTaskManager(
 			final String taskManagerRpcAddress,
-			final TaskManagerLocation taskManagerLocation,
+			final TaskManagerUnresolvedLocation taskManagerUnresolvedLocation,
 			@RpcTimeout final Time timeout);
 
 	/**

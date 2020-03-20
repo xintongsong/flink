@@ -54,7 +54,7 @@ public final class QueryableStateUtils {
 	 * @return the {@link KvStateClientProxy client proxy}.
 	 */
 	public static KvStateClientProxy createKvStateClientProxy(
-			final InetAddress address,
+			final String address,
 			final Iterator<Integer> ports,
 			final int eventLoopThreads,
 			final int queryThreads,
@@ -108,7 +108,7 @@ public final class QueryableStateUtils {
 	 * @return the {@link KvStateServer state server}.
 	 */
 	public static KvStateServer createKvStateServer(
-			final InetAddress address,
+			final String address,
 			final Iterator<Integer> ports,
 			final int eventLoopThreads,
 			final int queryThreads,
