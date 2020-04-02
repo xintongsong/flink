@@ -28,7 +28,6 @@ import org.apache.flink.client.deployment.ClusterSpecification;
 import org.apache.flink.client.program.ClusterClientProvider;
 import org.apache.flink.client.program.rest.RestClusterClient;
 import org.apache.flink.configuration.ConfigConstants;
-import org.apache.flink.configuration.ConfigUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
 import org.apache.flink.configuration.CoreOptions;
@@ -38,8 +37,6 @@ import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.SecurityOptions;
-import org.apache.flink.core.plugin.PluginConfig;
-import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypoint;
 import org.apache.flink.runtime.jobgraph.JobGraph;
@@ -49,7 +46,6 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.ShutdownHookUtil;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
-import org.apache.flink.yarn.configuration.YarnConfigOptionsInternal;
 import org.apache.flink.yarn.entrypoint.YarnJobClusterEntrypoint;
 import org.apache.flink.yarn.entrypoint.YarnSessionClusterEntrypoint;
 
@@ -57,7 +53,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
-import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
@@ -96,26 +91,17 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.apache.flink.configuration.ConfigConstants.DEFAULT_FLINK_USR_LIB_DIR;
-import static org.apache.flink.configuration.ConfigConstants.ENV_FLINK_LIB_DIR;
 import static org.apache.flink.runtime.entrypoint.component.FileJobGraphRetriever.JOB_GRAPH_FILE_PATH;
-import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.yarn.cli.FlinkYarnSessionCli.CONFIG_FILE_LOG4J_NAME;
 import static org.apache.flink.yarn.cli.FlinkYarnSessionCli.CONFIG_FILE_LOGBACK_NAME;
@@ -135,9 +121,6 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 	/** True if the descriptor must not shut down the YarnClient. */
 	private final boolean sharedYarnClient;
 
-	/** Lazily initialized list of files to ship. */
-	private final List<File> shipFiles = new LinkedList<>();
-
 	private final String yarnQueue;
 
 	private Path flinkJarPath;
@@ -152,8 +135,6 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 	private String zookeeperNamespace;
 
-	private YarnConfigOptions.UserJarInclusion userJarInclusion;
-
 	public YarnClusterDescriptor(
 			Configuration flinkConfiguration,
 			YarnConfiguration yarnConfiguration,
@@ -167,10 +148,8 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		this.sharedYarnClient = sharedYarnClient;
 
 		this.flinkConfiguration = Preconditions.checkNotNull(flinkConfiguration);
-		this.userJarInclusion = getUserJarInclusionMode(flinkConfiguration);
 
 		getLocalFlinkDistPath(flinkConfiguration).ifPresent(this::setLocalJarPath);
-		decodeDirsToShipToCluster(flinkConfiguration).ifPresent(this::addShipFiles);
 
 		this.yarnQueue = flinkConfiguration.getString(YarnConfigOptions.APPLICATION_QUEUE);
 		this.customName = flinkConfiguration.getString(YarnConfigOptions.APPLICATION_NAME);
@@ -179,13 +158,6 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		// we want to ignore the default value at this point.
 		this.zookeeperNamespace = flinkConfiguration.getString(HighAvailabilityOptions.HA_CLUSTER_ID, null);
-	}
-
-	private Optional<List<File>> decodeDirsToShipToCluster(final Configuration configuration) {
-		checkNotNull(configuration);
-
-		final List<File> files = ConfigUtils.decodeListFromConfig(configuration, YarnConfigOptions.SHIP_DIRECTORIES, File::new);
-		return files.isEmpty() ? Optional.empty() : Optional.of(files);
 	}
 
 	private Optional<Path> getLocalFlinkDistPath(final Configuration configuration) {
@@ -247,25 +219,6 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			throw new IllegalArgumentException("The passed jar path ('" + localJarPath + "') does not end with the 'jar' extension");
 		}
 		this.flinkJarPath = localJarPath;
-	}
-
-	/**
-	 * Adds the given files to the list of files to ship.
-	 *
-	 * <p>Note that any file matching "<tt>flink-dist*.jar</tt>" will be excluded from the upload by
-	 * {@link #uploadAndRegisterFiles(Collection, FileSystem, Path, ApplicationId, List, Map, String, StringBuilder, int)}
-	 * since we upload the Flink uber jar ourselves and do not need to deploy it multiple times.
-	 *
-	 * @param shipFiles files to ship
-	 */
-	public void addShipFiles(List<File> shipFiles) {
-		checkArgument(userJarInclusion != YarnConfigOptions.UserJarInclusion.DISABLED || isUsrLibDirIncludedInShipFiles(shipFiles),
-			"This is an illegal ship directory : %s. When setting the %s to %s the name of ship directory can not be %s.",
-			ConfigConstants.DEFAULT_FLINK_USR_LIB_DIR,
-			YarnConfigOptions.CLASSPATH_INCLUDE_USER_JAR.key(),
-			YarnConfigOptions.UserJarInclusion.DISABLED,
-			ConfigConstants.DEFAULT_FLINK_USR_LIB_DIR);
-		this.shipFiles.addAll(shipFiles);
 	}
 
 	private void isReadyForDeployment(ClusterSpecification clusterSpecification) throws Exception {
@@ -618,48 +571,12 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			YarnClientApplication yarnApplication,
 			ClusterSpecification clusterSpecification) throws Exception {
 
-		// ------------------ Initialize the file systems -------------------------
-
-		org.apache.flink.core.fs.FileSystem.initialize(
-				configuration,
-				PluginUtils.createPluginManagerFromRootFolder(configuration));
-
-		// initialize file system
-		// Copy the application master jar to the filesystem
-		// Create a local resource to point to the destination jar path
-		final FileSystem fs = FileSystem.get(yarnConfiguration);
-		final Path homeDir = fs.getHomeDirectory();
-
-		// hard coded check for the GoogleHDFS client because its not overriding the getScheme() method.
-		if (!fs.getClass().getSimpleName().equals("GoogleHadoopFileSystem") &&
-				fs.getScheme().startsWith("file")) {
-			LOG.warn("The file system scheme is '" + fs.getScheme() + "'. This indicates that the "
-					+ "specified Hadoop configuration path is wrong and the system is using the default Hadoop configuration values."
-					+ "The Flink YARN client needs to store its files in a distributed file system");
-		}
-
-		ApplicationSubmissionContext appContext = yarnApplication.getApplicationSubmissionContext();
-		// The files need to be shipped and added to classpath.
-		Set<File> systemShipFiles = new HashSet<>(shipFiles.size());
-		// The files only need to be shipped.
-		Set<File> shipOnlyFiles = new HashSet<>();
-		for (File file : shipFiles) {
-			systemShipFiles.add(file.getAbsoluteFile());
-		}
-
-		final String logConfigFilePath = configuration.getString(YarnConfigOptionsInternal.APPLICATION_LOG_CONFIG_FILE);
-		if (logConfigFilePath != null) {
-			systemShipFiles.add(new File(logConfigFilePath));
-		}
-
-		addLibFoldersToShipFiles(systemShipFiles);
-
-		// Plugin files only need to be shipped and should not be added to classpath.
-		addPluginsFoldersToShipFiles(shipOnlyFiles);
-
-		// Set-up ApplicationSubmissionContext for the application
-
+		final ApplicationSubmissionContext appContext = yarnApplication.getApplicationSubmissionContext();
 		final ApplicationId appId = appContext.getApplicationId();
+
+		final ShipFileUtils shipFileUtils = new ShipFileUtils(flinkConfiguration, yarnConfiguration, appId);
+
+
 
 		// ------------------ Add Zookeeper namespace to local flinkConfiguraton ------
 		String zkNamespace = getZookeeperNamespace();
@@ -694,10 +611,6 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 				// add user code jars from the provided JobGraph
 				: jobGraph.getUserJars().stream().map(f -> f.toUri()).map(File::new).collect(Collectors.toSet());
 
-		int yarnFileReplication = yarnConfiguration.getInt(DFSConfigKeys.DFS_REPLICATION_KEY, DFSConfigKeys.DFS_REPLICATION_DEFAULT);
-		int fileReplication = configuration.getInteger(YarnConfigOptions.FILE_REPLICATION);
-		fileReplication = fileReplication > 0 ? fileReplication : yarnFileReplication;
-
 		// only for per job mode
 		if (jobGraph != null) {
 			for (Map.Entry<String, DistributedCache.DistributedCacheEntry> entry : jobGraph.getUserArtifacts().entrySet()) {
@@ -706,7 +619,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 				if (!path.getFileSystem().isDistributedFS()) {
 					Path localPath = new Path(path.getPath());
 					Tuple2<Path, Long> remoteFileInfo =
-						Utils.uploadLocalFileToRemote(fs, appId.toString(), localPath, homeDir, entry.getKey(), fileReplication);
+						shipFileUtils.uploadLocalFileToRemote(localPath, entry.getKey());
 					jobGraph.setUserArtifactRemotePath(entry.getKey(), remoteFileInfo.f0.toString());
 				}
 			}
@@ -714,48 +627,32 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			jobGraph.writeUserArtifactEntriesToConfiguration();
 		}
 
-		// local resource map for Yarn
-		final Map<String, LocalResource> localResources = new HashMap<>(2 + systemShipFiles.size() + userJarFiles.size());
-		// list of remote paths (after upload)
-		final List<Path> paths = new ArrayList<>(2 + systemShipFiles.size() + userJarFiles.size());
 		// ship list that enables reuse of resources for task manager containers
-		StringBuilder envShipFileList = new StringBuilder();
+		//StringBuilder envShipFileList = new StringBuilder();
 
 		// upload and register ship files, these files will be added to classpath.
-		List<String> systemClassPaths = uploadAndRegisterFiles(
+		List<String> systemClassPaths = shipFileUtils.uploadAndRegisterFiles(
 			systemShipFiles,
-			fs,
-			homeDir,
-			appId,
 			paths,
 			localResources,
 			Path.CUR_DIR,
-			envShipFileList,
-			fileReplication);
+			envShipFileList);
 
 		// upload and register ship-only files
-		uploadAndRegisterFiles(
+		shipFileUtils.uploadAndRegisterFiles(
 			shipOnlyFiles,
-			fs,
-			homeDir,
-			appId,
 			paths,
 			localResources,
 			Path.CUR_DIR,
-			envShipFileList,
-			fileReplication);
+			envShipFileList);
 
-		final List<String> userClassPaths = uploadAndRegisterFiles(
+		final List<String> userClassPaths = shipFileUtils.uploadAndRegisterFiles(
 			userJarFiles,
-			fs,
-			homeDir,
-			appId,
 			paths,
 			localResources,
 			userJarInclusion == YarnConfigOptions.UserJarInclusion.DISABLED ?
 				ConfigConstants.DEFAULT_FLINK_USR_LIB_DIR : Path.CUR_DIR,
-			envShipFileList,
-			fileReplication);
+			envShipFileList);
 
 		if (userJarInclusion == YarnConfigOptions.UserJarInclusion.ORDER) {
 			systemClassPaths.addAll(userClassPaths);
@@ -777,15 +674,11 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		}
 
 		// Setup jar for ApplicationMaster
-		Path remotePathJar = setupSingleLocalResource(
+		Path remotePathJar = shipFileUtils.setupSingleLocalResource(
 				flinkJarPath.getName(),
-				fs,
-				appId,
 				flinkJarPath,
 				localResources,
-				homeDir,
-				"",
-				fileReplication);
+				"");
 
 		paths.add(remotePathJar);
 		classPathBuilder.append(flinkJarPath.getName()).append(File.pathSeparator);
@@ -804,15 +697,11 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 				final String jobGraphFilename = "job.graph";
 				configuration.setString(JOB_GRAPH_FILE_PATH, jobGraphFilename);
 
-				Path pathFromYarnURL = setupSingleLocalResource(
+				Path pathFromYarnURL = shipFileUtils.setupSingleLocalResource(
 						jobGraphFilename,
-						fs,
-						appId,
 						new Path(tmpJobGraphFile.toURI()),
 						localResources,
-						homeDir,
-						"",
-						fileReplication);
+						"");
 				paths.add(pathFromYarnURL);
 				classPathBuilder.append(jobGraphFilename).append(File.pathSeparator);
 			} catch (Exception e) {
@@ -833,15 +722,11 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			BootstrapTools.writeConfiguration(configuration, tmpConfigurationFile);
 
 			String flinkConfigKey = "flink-conf.yaml";
-			Path remotePathConf = setupSingleLocalResource(
+			Path remotePathConf = shipFileUtils.setupSingleLocalResource(
 				flinkConfigKey,
-				fs,
-				appId,
 				new Path(tmpConfigurationFile.getAbsolutePath()),
 				localResources,
-				homeDir,
-				"",
-				fileReplication);
+				"");
 			envShipFileList.append(flinkConfigKey).append("=").append(remotePathConf).append(",");
 			paths.add(remotePathConf);
 			classPathBuilder.append("flink-conf.yaml").append(File.pathSeparator);
@@ -859,7 +744,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		final Path yarnFilesDir = getYarnFilesDir(appId);
 		FsPermission permission = new FsPermission(FsAction.ALL, FsAction.NONE, FsAction.NONE);
-		fs.setPermission(yarnFilesDir, permission); // set permission for path.
+		shipFileUtils.setPermission(yarnFilesDir, permission); // set permission for path.
 
 		//To support Yarn Secure Integration Test Scenario
 		//In Integration test setup, the Yarn containers created by YarnMiniCluster does not have the Yarn site XML
@@ -872,30 +757,22 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			File f = new File(System.getenv("YARN_CONF_DIR"), Utils.YARN_SITE_FILE_NAME);
 			LOG.info("Adding Yarn configuration {} to the AM container local resource bucket", f.getAbsolutePath());
 			Path yarnSitePath = new Path(f.getAbsolutePath());
-			remoteYarnSiteXmlPath = setupSingleLocalResource(
+			remoteYarnSiteXmlPath = shipFileUtils.setupSingleLocalResource(
 					Utils.YARN_SITE_FILE_NAME,
-					fs,
-					appId,
 					yarnSitePath,
 					localResources,
-					homeDir,
-					"",
-					fileReplication);
+					"");
 
 			String krb5Config = System.getProperty("java.security.krb5.conf");
 			if (krb5Config != null && krb5Config.length() != 0) {
 				File krb5 = new File(krb5Config);
 				LOG.info("Adding KRB5 configuration {} to the AM container local resource bucket", krb5.getAbsolutePath());
 				Path krb5ConfPath = new Path(krb5.getAbsolutePath());
-				remoteKrb5Path = setupSingleLocalResource(
+				remoteKrb5Path = shipFileUtils.setupSingleLocalResource(
 						Utils.KRB5_FILE_NAME,
-						fs,
-						appId,
 						krb5ConfPath,
 						localResources,
-						homeDir,
-						"",
-						fileReplication);
+						"");
 				hasKrb5 = true;
 			}
 		}
@@ -909,15 +786,11 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			if (localizeKeytab) {
 				// Localize the keytab to YARN containers via local resource.
 				LOG.info("Adding keytab {} to the AM container local resource bucket", keytab);
-				remotePathKeytab = setupSingleLocalResource(
+				remotePathKeytab = shipFileUtils.setupSingleLocalResource(
 					localizedKeytabPath,
-					fs,
-					appId,
 					new Path(keytab),
 					localResources,
-					homeDir,
-					"",
-					fileReplication);
+					"");
 			} else {
 				// // Assume Keytab is pre-installed in the container.
 				localizedKeytabPath = flinkConfiguration.getString(YarnConfigOptions.LOCALIZED_KEYTAB_PATH);
@@ -942,7 +815,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		}
 
 		amContainer.setLocalResources(localResources);
-		fs.close();
+		//fs.close();
 
 		// Setup CLASSPATH and environment variables for ApplicationMaster
 		final Map<String, String> appMasterEnv = new HashMap<>();
@@ -955,7 +828,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		// set Flink on YARN internal configuration values
 		appMasterEnv.put(YarnConfigKeys.FLINK_JAR_PATH, remotePathJar.toString());
 		appMasterEnv.put(YarnConfigKeys.ENV_APP_ID, appId.toString());
-		appMasterEnv.put(YarnConfigKeys.ENV_CLIENT_HOME_DIR, homeDir.toString());
+		appMasterEnv.put(YarnConfigKeys.ENV_CLIENT_HOME_DIR, shipFileUtils.getRemoteHomeDir().toString());
 		appMasterEnv.put(YarnConfigKeys.ENV_CLIENT_SHIP_FILES, envShipFileList.toString());
 		appMasterEnv.put(YarnConfigKeys.ENV_ZOOKEEPER_NAMESPACE, getZookeeperNamespace());
 		appMasterEnv.put(YarnConfigKeys.FLINK_YARN_FILES, yarnFilesDir.toUri().toString());
@@ -1072,149 +945,6 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		final FileSystem fileSystem = FileSystem.get(yarnConfiguration);
 		final Path homeDir = fileSystem.getHomeDirectory();
 		return new Path(homeDir, ".flink/" + appId + '/');
-	}
-
-	/**
-	 * Uploads and registers a single resource and adds it to <tt>localResources</tt>.
-	 *
-	 * @param key
-	 * 		the key to add the resource under
-	 * @param fs
-	 * 		the remote file system to upload to
-	 * @param appId
-	 * 		application ID
-	 * @param localSrcPath
-	 * 		local path to the file
-	 * @param localResources
-	 * 		map of resources
-     * @param replication
-	 * 	    number of replications of a remote file to be created
-	 *
-	 * @return the remote path to the uploaded resource
-	 */
-	private static Path setupSingleLocalResource(
-			String key,
-			FileSystem fs,
-			ApplicationId appId,
-			Path localSrcPath,
-			Map<String, LocalResource> localResources,
-			Path targetHomeDir,
-			String relativeTargetPath,
-			int replication) throws IOException {
-		Tuple2<Path, LocalResource> resource = Utils.setupLocalResource(
-				fs,
-				appId.toString(),
-				localSrcPath,
-				targetHomeDir,
-				relativeTargetPath,
-				replication);
-
-		localResources.put(key, resource.f1);
-
-		return resource.f0;
-	}
-
-	/**
-	 * Match file name for "<tt>flink-dist*.jar</tt>" pattern.
-	 *
-	 * @param fileName file name to check
-	 * @return true if file is a dist jar
-	 */
-	private static boolean isDistJar(String fileName) {
-		return fileName.startsWith("flink-dist") && fileName.endsWith("jar");
-	}
-
-	/**
-	 * Recursively uploads (and registers) any (user and system) files in <tt>shipFiles</tt> except
-	 * for files matching "<tt>flink-dist*.jar</tt>" which should be uploaded separately.
-	 *
-	 * @param shipFiles
-	 * 		files to upload
-	 * @param fs
-	 * 		file system to upload to
-	 * @param targetHomeDir
-	 * 		remote home directory to upload to
-	 * @param appId
-	 * 		application ID
-	 * @param remotePaths
-	 * 		paths of the remote resources (uploaded resources will be added)
-	 * @param localResources
-	 * 		map of resources (uploaded resources will be added)
-	 * @param localResourcesDirectory
-	 *		the directory the localResources are uploaded to
-	 * @param envShipFileList
-	 * 		list of shipped files in a format understood by {@link Utils#createTaskExecutorContext}
-	 * @param replication
-	 * 	     number of replications of a remote file to be created
-	 *
-	 * @return list of class paths with the the proper resource keys from the registration
-	 */
-	static List<String> uploadAndRegisterFiles(
-			Collection<File> shipFiles,
-			FileSystem fs,
-			Path targetHomeDir,
-			ApplicationId appId,
-			List<Path> remotePaths,
-			Map<String, LocalResource> localResources,
-			String localResourcesDirectory,
-			StringBuilder envShipFileList,
-			int replication) throws IOException {
-
-		checkArgument(replication >= 1);
-		final List<Path> localPaths = new ArrayList<>();
-		final List<Path> relativePaths = new ArrayList<>();
-		for (File shipFile : shipFiles) {
-			if (shipFile.isDirectory()) {
-				// add directories to the classpath
-				final java.nio.file.Path shipPath = shipFile.toPath();
-				final java.nio.file.Path parentPath = shipPath.getParent();
-				Files.walkFileTree(shipPath, new SimpleFileVisitor<java.nio.file.Path>() {
-					@Override
-					public FileVisitResult visitFile(java.nio.file.Path file, BasicFileAttributes attrs) {
-						localPaths.add(new Path(file.toUri()));
-						relativePaths.add(new Path(localResourcesDirectory, parentPath.relativize(file).toString()));
-						return FileVisitResult.CONTINUE;
-					}
-				});
-			} else {
-				localPaths.add(new Path(shipFile.toURI()));
-				relativePaths.add(new Path(localResourcesDirectory, shipFile.getName()));
-			}
-		}
-
-		final Set<String> archives = new HashSet<>();
-		final Set<String> resources = new HashSet<>();
-		for (int i = 0; i < localPaths.size(); i++) {
-			final Path localPath = localPaths.get(i);
-			final Path relativePath = relativePaths.get(i);
-			if (!isDistJar(relativePath.getName())) {
-				final String key = relativePath.toString();
-				final Path remotePath = setupSingleLocalResource(
-						key,
-						fs,
-						appId,
-						localPath,
-						localResources,
-						targetHomeDir,
-						relativePath.getParent().toString(),
-						replication);
-				remotePaths.add(remotePath);
-				envShipFileList.append(key).append("=").append(remotePath).append(",");
-				// add files to the classpath
-				if (key.endsWith("jar")) {
-					archives.add(relativePath.toString());
-				} else {
-					resources.add(relativePath.getParent().toString());
-				}
-			}
-		}
-
-		// construct classpath, we always want resource directories to go first, we also sort
-		// both resources and archives in order to make classpath deterministic
-		final ArrayList<String> classPaths = new ArrayList<>();
-		resources.stream().sorted().forEach(classPaths::add);
-		archives.stream().sorted().forEach(classPaths::add);
-		return classPaths;
 	}
 
 	/**
@@ -1490,7 +1220,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		}
 	}
 
-	private static class YarnDeploymentException extends RuntimeException {
+	static class YarnDeploymentException extends RuntimeException {
 		private static final long serialVersionUID = -812040641215388943L;
 
 		public YarnDeploymentException(String message) {
@@ -1537,32 +1267,6 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 				LOG.error("Failed to delete Flink Jar and configuration files in HDFS", e);
 			}
 		}
-	}
-
-	@VisibleForTesting
-	void addLibFoldersToShipFiles(Collection<File> effectiveShipFiles) {
-		// Add lib folder to the ship files if the environment variable is set.
-		// This is for convenience when running from the command-line.
-		// (for other files users explicitly set the ship files)
-		String libDir = System.getenv().get(ENV_FLINK_LIB_DIR);
-		if (libDir != null) {
-			File directoryFile = new File(libDir);
-			if (directoryFile.isDirectory()) {
-				effectiveShipFiles.add(directoryFile);
-			} else {
-				throw new YarnDeploymentException("The environment variable '" + ENV_FLINK_LIB_DIR +
-						"' is set to '" + libDir + "' but the directory doesn't exist.");
-			}
-		} else if (shipFiles.isEmpty()) {
-			LOG.warn("Environment variable '{}' not set and ship files have not been provided manually. " +
-					"Not shipping any library files.", ENV_FLINK_LIB_DIR);
-		}
-	}
-
-	@VisibleForTesting
-	void addPluginsFoldersToShipFiles(Collection<File> effectiveShipFiles) {
-		final Optional<File> pluginsDir = PluginConfig.getPluginsDir();
-		pluginsDir.ifPresent(effectiveShipFiles::add);
 	}
 
 	ContainerLaunchContext setupApplicationMasterContainer(
@@ -1628,17 +1332,6 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		LOG.debug("Application Master start command: " + amCommand);
 
 		return amContainer;
-	}
-
-	private static YarnConfigOptions.UserJarInclusion getUserJarInclusionMode(org.apache.flink.configuration.Configuration config) {
-		return config.getEnum(YarnConfigOptions.UserJarInclusion.class, YarnConfigOptions.CLASSPATH_INCLUDE_USER_JAR);
-	}
-
-	private static boolean isUsrLibDirIncludedInShipFiles(List<File> shipFiles) {
-		return shipFiles.stream()
-			.filter(File::isDirectory)
-			.map(File::getName)
-			.noneMatch(name -> name.equals(DEFAULT_FLINK_USR_LIB_DIR));
 	}
 
 	private void setClusterEntrypointInfoToConfig(final ApplicationReport report) {
