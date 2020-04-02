@@ -20,6 +20,8 @@ package org.apache.flink.yarn;
 
 import org.apache.flink.util.OperatingSystem;
 import org.apache.flink.util.TestLogger;
+import org.apache.flink.yarn.configuration.YarnConfigOptions;
+import org.apache.flink.yarn.util.ClasspathBuilder;
 
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -47,6 +49,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -192,7 +195,8 @@ public class YarnFileStageTest extends TestLogger {
 		try {
 			final List<Path> remotePaths = new ArrayList<>();
 			final HashMap<String, LocalResource> localResources = new HashMap<>();
-			final List<String> classpath = YarnClusterDescriptor.uploadAndRegisterFiles(
+			final ClasspathBuilder classpathBuilder = new ClasspathBuilder(YarnConfigOptions.UserJarInclusion.ORDER);
+			YarnClusterDescriptor.uploadAndRegisterFiles(
 				Collections.singletonList(new File(srcPath.toUri().getPath())),
 				targetFileSystem,
 				targetDir,
@@ -201,12 +205,13 @@ public class YarnFileStageTest extends TestLogger {
 				localResources,
 				localResourceDirectory,
 				new StringBuilder(),
-				DFSConfigKeys.DFS_REPLICATION_DEFAULT);
+				DFSConfigKeys.DFS_REPLICATION_DEFAULT).forEach(path -> classpathBuilder.addClasspath(path, ClasspathBuilder.ClasspathType.USER));
+			final List<String> classpaths = Arrays.asList(classpathBuilder.build().split(File.pathSeparator));
 
 			final Path basePath = new Path(localResourceDirectory, srcDir.getName());
 			final Path nestedPath = new Path(basePath, "nested");
 			assertThat(
-				classpath,
+				classpaths,
 				containsInAnyOrder(
 					basePath.toString(),
 					nestedPath.toString(),
@@ -255,7 +260,7 @@ public class YarnFileStageTest extends TestLogger {
 		try {
 			final List<Path> remotePaths = new ArrayList<>();
 			final HashMap<String, LocalResource> localResources = new HashMap<>();
-			final List<String> classpath = YarnClusterDescriptor.uploadAndRegisterFiles(
+			final List<Path> classpath = YarnClusterDescriptor.uploadAndRegisterFiles(
 				Collections.singletonList(new File(srcDir, localFile)),
 				targetFileSystem,
 				targetDir,
@@ -266,7 +271,7 @@ public class YarnFileStageTest extends TestLogger {
 				new StringBuilder(),
 				DFSConfigKeys.DFS_REPLICATION_DEFAULT);
 
-			assertThat(classpath, containsInAnyOrder(new Path(localResourceDirectory, localFile).toString()));
+			assertThat(classpath, containsInAnyOrder(new Path(localResourceDirectory, localFile)));
 
 			final Path workDir = ConverterUtils.getPathFromYarnURL(
 				localResources.get(new Path(localResourceDirectory, localFile).toString()).getResource()).getParent();

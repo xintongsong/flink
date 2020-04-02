@@ -52,6 +52,7 @@ import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.configuration.YarnConfigOptionsInternal;
 import org.apache.flink.yarn.entrypoint.YarnJobClusterEntrypoint;
 import org.apache.flink.yarn.entrypoint.YarnSessionClusterEntrypoint;
+import org.apache.flink.yarn.util.ClasspathBuilder;
 import org.apache.flink.yarn.util.Utils;
 
 import org.apache.hadoop.fs.FileSystem;
@@ -722,8 +723,10 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		// ship list that enables reuse of resources for task manager containers
 		StringBuilder envShipFileList = new StringBuilder();
 
+		final ClasspathBuilder classpathBuilder = new ClasspathBuilder(userJarInclusion);
+
 		// upload and register ship files, these files will be added to classpath.
-		List<String> systemClassPaths = uploadAndRegisterFiles(
+		List<Path> systemClassPaths = uploadAndRegisterFiles(
 			systemShipFiles,
 			fs,
 			homeDir,
@@ -733,6 +736,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			Path.CUR_DIR,
 			envShipFileList,
 			fileReplication);
+		systemClassPaths.forEach(path -> classpathBuilder.addClasspath(path, ClasspathBuilder.ClasspathType.SYSTEM));
 
 		// upload and register ship-only files
 		uploadAndRegisterFiles(
@@ -746,7 +750,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			envShipFileList,
 			fileReplication);
 
-		final List<String> userClassPaths = uploadAndRegisterFiles(
+		final List<Path> userClassPaths = uploadAndRegisterFiles(
 			userJarFiles,
 			fs,
 			homeDir,
@@ -757,25 +761,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 				ConfigConstants.DEFAULT_FLINK_USR_LIB_DIR : Path.CUR_DIR,
 			envShipFileList,
 			fileReplication);
-
-		if (userJarInclusion == YarnConfigOptions.UserJarInclusion.ORDER) {
-			systemClassPaths.addAll(userClassPaths);
-		}
-
-		// normalize classpath by sorting
-		Collections.sort(systemClassPaths);
-		Collections.sort(userClassPaths);
-
-		// classpath assembler
-		StringBuilder classPathBuilder = new StringBuilder();
-		if (userJarInclusion == YarnConfigOptions.UserJarInclusion.FIRST) {
-			for (String userClassPath : userClassPaths) {
-				classPathBuilder.append(userClassPath).append(File.pathSeparator);
-			}
-		}
-		for (String classPath : systemClassPaths) {
-			classPathBuilder.append(classPath).append(File.pathSeparator);
-		}
+		userClassPaths.forEach(path -> classpathBuilder.addClasspath(path, ClasspathBuilder.ClasspathType.USER));
 
 		// Setup jar for ApplicationMaster
 		Path remotePathJar = setupSingleLocalResource(
@@ -789,7 +775,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 				fileReplication);
 
 		paths.add(remotePathJar);
-		classPathBuilder.append(flinkJarPath.getName()).append(File.pathSeparator);
+		classpathBuilder.addClasspath(flinkJarPath, ClasspathBuilder.ClasspathType.SYSTEM);
 
 		// write job graph to tmp file and add it to local resource
 		// TODO: server use user main method to generate job graph
@@ -815,7 +801,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 						"",
 						fileReplication);
 				paths.add(pathFromYarnURL);
-				classPathBuilder.append(jobGraphFilename).append(File.pathSeparator);
+				classpathBuilder.addClasspath(jobGraphFilename, ClasspathBuilder.ClasspathType.SYSTEM);
 			} catch (Exception e) {
 				LOG.warn("Add job graph to local resource fail.");
 				throw e;
@@ -845,16 +831,10 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 				fileReplication);
 			envShipFileList.append(flinkConfigKey).append("=").append(remotePathConf).append(",");
 			paths.add(remotePathConf);
-			classPathBuilder.append("flink-conf.yaml").append(File.pathSeparator);
+			classpathBuilder.addClasspath("flink-conf.yaml", ClasspathBuilder.ClasspathType.SYSTEM);
 		} finally {
 			if (tmpConfigurationFile != null && !tmpConfigurationFile.delete()) {
 				LOG.warn("Fail to delete temporary file {}.", tmpConfigurationFile.toPath());
-			}
-		}
-
-		if (userJarInclusion == YarnConfigOptions.UserJarInclusion.LAST) {
-			for (String userClassPath : userClassPaths) {
-				classPathBuilder.append(userClassPath).append(File.pathSeparator);
 			}
 		}
 
@@ -951,7 +931,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		appMasterEnv.putAll(
 			ConfigurationUtils.getPrefixedKeyValuePairs(ResourceManagerOptions.CONTAINERIZED_MASTER_ENV_PREFIX, configuration));
 		// set Flink app class path
-		appMasterEnv.put(YarnConfigKeys.ENV_FLINK_CLASSPATH, classPathBuilder.toString());
+		appMasterEnv.put(YarnConfigKeys.ENV_FLINK_CLASSPATH, classpathBuilder.build());
 
 		// set Flink on YARN internal configuration values
 		appMasterEnv.put(YarnConfigKeys.FLINK_JAR_PATH, remotePathJar.toString());
@@ -1150,7 +1130,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 	 *
 	 * @return list of class paths with the the proper resource keys from the registration
 	 */
-	static List<String> uploadAndRegisterFiles(
+	static List<Path> uploadAndRegisterFiles(
 			Collection<File> shipFiles,
 			FileSystem fs,
 			Path targetHomeDir,
@@ -1183,8 +1163,6 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			}
 		}
 
-		final Set<String> archives = new HashSet<>();
-		final Set<String> resources = new HashSet<>();
 		for (int i = 0; i < localPaths.size(); i++) {
 			final Path localPath = localPaths.get(i);
 			final Path relativePath = relativePaths.get(i);
@@ -1201,21 +1179,10 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 						replication);
 				remotePaths.add(remotePath);
 				envShipFileList.append(key).append("=").append(remotePath).append(",");
-				// add files to the classpath
-				if (key.endsWith("jar")) {
-					archives.add(relativePath.toString());
-				} else {
-					resources.add(relativePath.getParent().toString());
-				}
 			}
 		}
 
-		// construct classpath, we always want resource directories to go first, we also sort
-		// both resources and archives in order to make classpath deterministic
-		final ArrayList<String> classPaths = new ArrayList<>();
-		resources.stream().sorted().forEach(classPaths::add);
-		archives.stream().sorted().forEach(classPaths::add);
-		return classPaths;
+		return relativePaths;
 	}
 
 	/**
