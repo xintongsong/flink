@@ -16,13 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.flink.yarn;
+package org.apache.flink.yarn.util;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
 import org.apache.flink.runtime.util.HadoopUtils;
 import org.apache.flink.util.StringUtils;
+import org.apache.flink.yarn.YarnConfigKeys;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
@@ -117,7 +118,7 @@ public final class Utils {
 	 *
 	 * @return Path to remote file (usually hdfs)
 	 */
-	static Tuple2<Path, LocalResource> setupLocalResource(
+	public static Tuple2<Path, LocalResource> setupLocalResource(
 		FileSystem fs,
 		String appId,
 		Path localSrcPath,
@@ -150,7 +151,7 @@ public final class Utils {
 	 *
 	 * @return Path to remote file (usually hdfs)
 	 */
-	static Tuple2<Path, Long> uploadLocalFileToRemote(
+	public static Tuple2<Path, Long> uploadLocalFileToRemote(
 		FileSystem fs,
 		String appId,
 		Path localSrcPath,
@@ -428,7 +429,7 @@ public final class Utils {
 	 * @throws Exception Thrown if the launch context could not be created, for example if
 	 *				   the resources could not be copied.
 	 */
-	static ContainerLaunchContext createTaskExecutorContext(
+	public static ContainerLaunchContext createTaskExecutorContext(
 		org.apache.flink.configuration.Configuration flinkConfig,
 		YarnConfiguration yarnConfig,
 		Map<String, String> env,

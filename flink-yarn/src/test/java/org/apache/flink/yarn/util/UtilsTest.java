@@ -16,9 +16,10 @@
  * limitations under the License.
  */
 
-package org.apache.flink.yarn;
+package org.apache.flink.yarn.util;
 
 import org.apache.flink.util.TestLogger;
+import org.apache.flink.yarn.YarnConfigKeys;
 
 import org.junit.Rule;
 import org.junit.Test;

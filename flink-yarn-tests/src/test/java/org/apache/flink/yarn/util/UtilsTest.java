@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.yarn;
+package org.apache.flink.yarn.util;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
@@ -25,6 +25,9 @@ import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameter
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.util.TestLogger;
+import org.apache.flink.yarn.YarnConfigKeys;
+import org.apache.flink.yarn.YarnTaskExecutorRunner;
+import org.apache.flink.yarn.YarnTestBase;
 
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.security.Credentials;
@@ -57,7 +60,7 @@ import static org.junit.Assert.assertTrue;
  * Tests for various utilities.
  */
 public class UtilsTest extends TestLogger {
-	private static final Logger LOG = LoggerFactory.getLogger(UtilsTest.class);
+	private static final Logger LOG = LoggerFactory.getLogger(org.apache.flink.yarn.util.UtilsTest.class);
 
 	@Rule
 	public TemporaryFolder temporaryFolder = new TemporaryFolder();

@@ -29,8 +29,8 @@ import org.apache.flink.configuration.SecurityOptions;
 import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.util.Preconditions;
-import org.apache.flink.yarn.Utils;
 import org.apache.flink.yarn.YarnConfigKeys;
+import org.apache.flink.yarn.util.Utils;
 
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
