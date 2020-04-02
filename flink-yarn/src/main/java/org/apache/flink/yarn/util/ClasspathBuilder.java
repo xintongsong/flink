@@ -107,6 +107,7 @@ public class ClasspathBuilder {
 	 */
 	public enum ClasspathType {
 		SYSTEM,
-		USER
+		USER,
+		NONE
 	}
 }

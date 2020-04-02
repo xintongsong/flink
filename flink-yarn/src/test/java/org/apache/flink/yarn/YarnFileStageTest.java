@@ -18,20 +18,20 @@
 
 package org.apache.flink.yarn;
 
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.util.OperatingSystem;
 import org.apache.flink.util.TestLogger;
-import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.util.ClasspathBuilder;
+import org.apache.flink.yarn.util.ShipFileUtils;
 
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
-import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
-import org.apache.hadoop.yarn.api.records.LocalResource;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.junit.AfterClass;
 import org.junit.Assume;
@@ -48,11 +48,10 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -193,36 +192,28 @@ public class YarnFileStageTest extends TestLogger {
 
 		// copy the created directory recursively:
 		try {
-			final List<Path> remotePaths = new ArrayList<>();
-			final HashMap<String, LocalResource> localResources = new HashMap<>();
-			final ClasspathBuilder classpathBuilder = new ClasspathBuilder(YarnConfigOptions.UserJarInclusion.ORDER);
-			YarnClusterDescriptor.uploadAndRegisterFiles(
+			ShipFileUtils shipFileUtils = createShipFileUtils(targetFileSystem);
+			shipFileUtils.uploadAndRegisterFiles(
 				Collections.singletonList(new File(srcPath.toUri().getPath())),
-				targetFileSystem,
-				targetDir,
-				ApplicationId.newInstance(0, 0),
-				remotePaths,
-				localResources,
 				localResourceDirectory,
-				new StringBuilder(),
-				DFSConfigKeys.DFS_REPLICATION_DEFAULT).forEach(path -> classpathBuilder.addClasspath(path, ClasspathBuilder.ClasspathType.USER));
-			final List<String> classpaths = Arrays.asList(classpathBuilder.build().split(File.pathSeparator));
+				ClasspathBuilder.ClasspathType.USER);
 
 			final Path basePath = new Path(localResourceDirectory, srcDir.getName());
 			final Path nestedPath = new Path(basePath, "nested");
+			final Collection<String> list = getClasspathList(shipFileUtils);
 			assertThat(
-				classpaths,
+				list,
 				containsInAnyOrder(
 					basePath.toString(),
 					nestedPath.toString(),
 					new Path(nestedPath, "4").toString(),
 					new Path(basePath, "test.jar").toString()));
 
-			assertEquals(srcFiles.size(), localResources.size());
+			assertEquals(srcFiles.size(), shipFileUtils.getLocalResources().size());
 
 			final Path workDir = ConverterUtils
 				.getPathFromYarnURL(
-					localResources.get(new Path(localResourceDirectory, new Path(srcPath.getName(), "1")).toString())
+					shipFileUtils.getLocalResources().get(new Path(localResourceDirectory, new Path(srcPath.getName(), "1")).toString())
 						.getResource()).getParent();
 
 			verifyDirectoryRecursive(targetFileSystem, workDir, srcFiles);
@@ -258,23 +249,16 @@ public class YarnFileStageTest extends TestLogger {
 
 		generateFilesInDirectory(srcDir, srcFiles);
 		try {
-			final List<Path> remotePaths = new ArrayList<>();
-			final HashMap<String, LocalResource> localResources = new HashMap<>();
-			final List<Path> classpath = YarnClusterDescriptor.uploadAndRegisterFiles(
+			ShipFileUtils shipFileUtils = createShipFileUtils(targetFileSystem);
+			shipFileUtils.uploadAndRegisterFiles(
 				Collections.singletonList(new File(srcDir, localFile)),
-				targetFileSystem,
-				targetDir,
-				ApplicationId.newInstance(0, 0),
-				remotePaths,
-				localResources,
 				localResourceDirectory,
-				new StringBuilder(),
-				DFSConfigKeys.DFS_REPLICATION_DEFAULT);
+				ClasspathBuilder.ClasspathType.USER);
 
-			assertThat(classpath, containsInAnyOrder(new Path(localResourceDirectory, localFile)));
+			assertThat(getClasspathList(shipFileUtils), containsInAnyOrder(new Path(localResourceDirectory, localFile).toString()));
 
 			final Path workDir = ConverterUtils.getPathFromYarnURL(
-				localResources.get(new Path(localResourceDirectory, localFile).toString()).getResource()).getParent();
+				shipFileUtils.getLocalResources().get(new Path(localResourceDirectory, localFile).toString()).getResource()).getParent();
 			verifyDirectoryRecursive(targetFileSystem, workDir, srcFiles);
 		} finally {
 			targetFileSystem.delete(targetDir, true);
@@ -338,5 +322,17 @@ public class YarnFileStageTest extends TestLogger {
 			} while ((retries--) > 0);
 		}
 		assertThat(targetFiles, equalTo(expectedFiles));
+	}
+
+	private static ShipFileUtils createShipFileUtils(final FileSystem fileSystem) throws IOException {
+		return ShipFileUtils.newInstance(
+			new Configuration(),
+			new YarnConfiguration(),
+			ApplicationId.newInstance(0, 0),
+			fileSystem);
+	}
+
+	private static Collection<String> getClasspathList(ShipFileUtils shipFileUtils) {
+		return Arrays.asList(shipFileUtils.getClasspath().split(File.pathSeparator));
 	}
 }
