@@ -1054,10 +1054,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	 * Allocates a resource using the resource profile.
 	 *
 	 * @param resourceProfile The resource description
-	 * @return Collection of {@link ResourceProfile} describing the launched slots
+	 * @return whether the resource can be allocated
 	 */
 	@VisibleForTesting
-	public abstract Collection<ResourceProfile> startNewWorker(ResourceProfile resourceProfile);
+	public abstract boolean startNewWorker(ResourceProfile resourceProfile);
 
 	/**
 	 * Callback when a worker was started.
@@ -1095,7 +1095,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		}
 
 		@Override
-		public Collection<ResourceProfile> allocateResource(ResourceProfile resourceProfile) {
+		public boolean allocateResource(ResourceProfile resourceProfile) {
 			validateRunsInMainThread();
 			return startNewWorker(resourceProfile);
 		}
