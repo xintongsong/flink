@@ -528,7 +528,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	 * Request new container if pending containers cannot satisfy pending slot requests.
 	 */
 	private void requestYarnContainerIfRequired() {
-		int requiredTaskManagers = getNumberRequiredTaskManagers();
+		int requiredTaskManagers = getNumberRequiredWorkers();
 
 		while (requiredTaskManagers-- > numPendingContainerRequests) {
 			requestYarnContainer();
