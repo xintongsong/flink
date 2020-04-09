@@ -20,6 +20,9 @@ package org.apache.flink.yarn.configuration;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
+import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManagerImpl;
+import org.apache.flink.yarn.YarnResourceManager;
 
 import static org.apache.flink.configuration.ConfigOptions.key;
 
@@ -34,4 +37,24 @@ public class YarnConfigOptionsInternal {
 					.stringType()
 					.noDefaultValue()
 					.withDescription("**DO NOT USE** The location of the log config file, e.g. the path to your log4j.properties for log4j.");
+
+	/**
+	 * **DO NO USE** Whether {@link YarnResourceManager} should match the vcores of allocated containers with those requested.
+	 *
+	 * <p>By default, Yarn ignores vcores in the container requests, and always allocate 1 vcore for each container.
+	 * Iff 'yarn.scheduler.capacity.resource-calculator' is set to 'DominantResourceCalculator' for Yarn, will it
+	 * allocate container vcores as requested. Unfortunately, this configuration option is dedicated for Yarn Scheduler,
+	 * and is only accessible to applications in Hadoop 2.6+.
+	 *
+	 * <p>ATM, it should be fine to not match vcores, because with the current {@link SlotManagerImpl} all the TM
+	 * containers should have the same resources.
+	 *
+	 * <p>If later we add another {@link SlotManager} implementation that may have TMs with different resources, we can
+	 * switch this option on only for the new SM, and the new SM can also be available on Hadoop 2.6+ only.
+	 */
+	public static final ConfigOption<Boolean> MATCH_CONTAINER_VCORES =
+			key("$internal.yarn.resourcemanager.enable-vcore-matching")
+					.booleanType()
+					.defaultValue(false)
+					.withDescription("**DO NOT USE** Whether YarnResourceManager should match the container vcores.");
 }
