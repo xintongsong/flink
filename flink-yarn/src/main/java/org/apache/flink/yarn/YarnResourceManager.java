@@ -73,6 +73,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -116,7 +117,9 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	/** Client to communicate with the Node manager and launch TaskExecutor processes. */
 	private NMClientAsync nodeManagerClient;
 
-	private final WorkerSpecContainerResourceAdapter workerSpecContainerResourceAdapter;
+	private WorkerSpecContainerResourceAdapter workerSpecContainerResourceAdapter = null;
+
+	private final RegisterApplicationMasterResponseReflector registerApplicationMasterResponseReflector;
 
 	public YarnResourceManager(
 			RpcService rpcService,
@@ -163,24 +166,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		containerRequestHeartbeatIntervalMillis = flinkConfig.getInteger(YarnConfigOptions.CONTAINER_REQUEST_HEARTBEAT_INTERVAL_MILLISECONDS);
 
 		this.webInterfaceUrl = webInterfaceUrl;
-
-		this.workerSpecContainerResourceAdapter = new WorkerSpecContainerResourceAdapter(
-			flinkConfig,
-			yarnConfig.getInt(
-				YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB,
-				YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_MB),
-			yarnConfig.getInt(
-				YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES,
-				YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES),
-			yarnConfig.getInt(
-				YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB,
-				YarnConfiguration.DEFAULT_RM_SCHEDULER_MAXIMUM_ALLOCATION_MB),
-			yarnConfig.getInt(
-				YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_VCORES,
-				YarnConfiguration.DEFAULT_RM_SCHEDULER_MAXIMUM_ALLOCATION_VCORES),
-			flinkConfig.getBoolean(YarnConfigOptionsInternal.MATCH_CONTAINER_VCORES) ?
-				WorkerSpecContainerResourceAdapter.MatchingStrategy.MATCH_VCORE :
-				WorkerSpecContainerResourceAdapter.MatchingStrategy.IGNORE_VCORE);
+		this.registerApplicationMasterResponseReflector = new RegisterApplicationMasterResponseReflector(log);
 	}
 
 	protected AMRMClientAsync<AMRMClient.ContainerRequest> createAndStartResourceManagerClient(
@@ -214,19 +200,66 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		final RegisterApplicationMasterResponse registerApplicationMasterResponse =
 			resourceManagerClient.registerApplicationMaster(hostPort.f0, restPort, webInterfaceUrl);
 		getContainersFromPreviousAttempts(registerApplicationMasterResponse);
+		initializeWorkerSpecContainerResourceAdapter(getMatchingStrategy(registerApplicationMasterResponse));
 
 		return resourceManagerClient;
 	}
 
 	private void getContainersFromPreviousAttempts(final RegisterApplicationMasterResponse registerApplicationMasterResponse) {
 		final List<Container> containersFromPreviousAttempts =
-			new RegisterApplicationMasterResponseReflector(log).getContainersFromPreviousAttempts(registerApplicationMasterResponse);
+			registerApplicationMasterResponseReflector.getContainersFromPreviousAttempts(registerApplicationMasterResponse);
 
 		log.info("Recovered {} containers from previous attempts ({}).", containersFromPreviousAttempts.size(), containersFromPreviousAttempts);
 
 		for (final Container container : containersFromPreviousAttempts) {
 			workerNodeMap.put(new ResourceID(container.getId().toString()), new YarnWorkerNode(container));
 		}
+	}
+
+	@VisibleForTesting
+	void initializeWorkerSpecContainerResourceAdapter(final WorkerSpecContainerResourceAdapter.MatchingStrategy matchingStrategy) {
+		this.workerSpecContainerResourceAdapter = new WorkerSpecContainerResourceAdapter(
+			flinkConfig,
+			yarnConfig.getInt(
+				YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB,
+				YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_MB),
+			yarnConfig.getInt(
+				YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES,
+				YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES),
+			yarnConfig.getInt(
+				YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB,
+				YarnConfiguration.DEFAULT_RM_SCHEDULER_MAXIMUM_ALLOCATION_MB),
+			yarnConfig.getInt(
+				YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_VCORES,
+				YarnConfiguration.DEFAULT_RM_SCHEDULER_MAXIMUM_ALLOCATION_VCORES),
+			matchingStrategy);
+	}
+
+	private WorkerSpecContainerResourceAdapter.MatchingStrategy getMatchingStrategy(final RegisterApplicationMasterResponse registerApplicationMasterResponse) {
+		final Optional<Set<String>> schedulerResourceTypesOptional =
+			registerApplicationMasterResponseReflector.getSchedulerResourceTypeNames(registerApplicationMasterResponse);
+
+		final WorkerSpecContainerResourceAdapter.MatchingStrategy strategy;
+		if (schedulerResourceTypesOptional.isPresent()) {
+			Set<String> types = schedulerResourceTypesOptional.get();
+			log.info("Register application master response contains scheduler resource types: {}.", types);
+			strategy = types.contains("CPU") ?
+				WorkerSpecContainerResourceAdapter.MatchingStrategy.MATCH_VCORE :
+				WorkerSpecContainerResourceAdapter.MatchingStrategy.IGNORE_VCORE;
+		} else {
+			log.info("Register application master response does not contain scheduler resource types, use '{}'.",
+				YarnConfigOptionsInternal.MATCH_CONTAINER_VCORES.key());
+			strategy = flinkConfig.getBoolean(YarnConfigOptionsInternal.MATCH_CONTAINER_VCORES) ?
+				WorkerSpecContainerResourceAdapter.MatchingStrategy.MATCH_VCORE :
+				WorkerSpecContainerResourceAdapter.MatchingStrategy.IGNORE_VCORE;
+		}
+		log.info("Container matching strategy: {}.", strategy);
+		return strategy;
+	}
+
+	private void validateWorkerSpecContainerResourceAdapterInitialized() {
+		Preconditions.checkNotNull(workerSpecContainerResourceAdapter,
+			"WorkerSpecContainerResourceAdapter is not yet initialized.");
 	}
 
 	protected NMClientAsync createAndStartNodeManagerClient(YarnConfiguration yarnConfiguration) {
@@ -309,6 +342,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	@VisibleForTesting
 	Optional<Resource> getContainerResource(WorkerResourceSpec workerResourceSpec) {
+		validateWorkerSpecContainerResourceAdapterInitialized();
 		return workerSpecContainerResourceAdapter.getContainerResource(workerResourceSpec);
 	}
 
@@ -379,6 +413,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	}
 
 	private void onContainersOfResourceAllocated(Resource resource, List<Container> containers) {
+		validateWorkerSpecContainerResourceAdapterInitialized();
 		final List<WorkerResourceSpec> pendingWorkerResourceSpecs =
 			workerSpecContainerResourceAdapter.getWorkerSpecs(resource).stream()
 				.flatMap(spec -> Collections.nCopies(getNumPendingWorkersFor(spec), spec).stream())
@@ -462,6 +497,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	}
 
 	private Collection<AMRMClient.ContainerRequest> getPendingRequestsAndCheckConsistency(Resource resource, int expectedNum) {
+		validateWorkerSpecContainerResourceAdapterInitialized();
 		final Collection<Resource> equivalentResources = workerSpecContainerResourceAdapter.getEquivalentContainerResource(resource);
 		final List<? extends Collection<AMRMClient.ContainerRequest>> matchingRequests =
 			equivalentResources.stream()

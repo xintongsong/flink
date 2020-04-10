@@ -295,6 +295,7 @@ public class YarnResourceManagerTest extends TestLogger {
 			testingYarnAMRMClientAsync = resourceManager.testingYarnAMRMClientAsync;
 			testingYarnNMClientAsync = resourceManager.testingYarnNMClientAsync;
 
+			resourceManager.initializeWorkerSpecContainerResourceAdapter(WorkerSpecContainerResourceAdapter.MatchingStrategy.MATCH_VCORE);
 			containerResource = resourceManager.getContainerResource(workerResourceSpec).get();
 		}
 
