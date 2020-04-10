@@ -32,13 +32,19 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static org.apache.flink.yarn.YarnTestUtils.isHadoopVersionGreaterThanOrEquals;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 /**
@@ -57,7 +63,7 @@ public class RegisterApplicationMasterResponseReflectorTest extends TestLogger {
 	}
 
 	@Test
-	public void testCallsMethodIfPresent() {
+	public void testCallsGetContainersFromPreviousAttemptsMethodIfPresent() {
 		final RegisterApplicationMasterResponseReflector registerApplicationMasterResponseReflector =
 			new RegisterApplicationMasterResponseReflector(LOG, HasMethod.class);
 
@@ -68,7 +74,7 @@ public class RegisterApplicationMasterResponseReflectorTest extends TestLogger {
 	}
 
 	@Test
-	public void testDoesntCallMethodIfAbsent() {
+	public void testDoesntCallGetContainersFromPreviousAttemptsMethodIfAbsent() {
 		final RegisterApplicationMasterResponseReflector registerApplicationMasterResponseReflector =
 			new RegisterApplicationMasterResponseReflector(LOG, HasMethod.class);
 
@@ -79,7 +85,7 @@ public class RegisterApplicationMasterResponseReflectorTest extends TestLogger {
 	}
 
 	@Test
-	public void testGetMethodReflectiveHadoop22() {
+	public void testGetContainersFromPreviousAttemptsMethodReflectiveHadoop22() {
 		assumeTrue(
 			"Method getContainersFromPreviousAttempts is not supported by Hadoop: " +
 				VersionInfo.getVersion(),
@@ -88,7 +94,44 @@ public class RegisterApplicationMasterResponseReflectorTest extends TestLogger {
 		final RegisterApplicationMasterResponseReflector registerApplicationMasterResponseReflector =
 			new RegisterApplicationMasterResponseReflector(LOG);
 
-		final Method method = registerApplicationMasterResponseReflector.getMethod();
+		final Method method = registerApplicationMasterResponseReflector.getGetContainersFromPreviousAttemptsMethod();
+		assertThat(method, notNullValue());
+	}
+
+	@Test
+	public void testCallsGetSchedulerResourceTypesMethodIfPresent() {
+		final RegisterApplicationMasterResponseReflector registerApplicationMasterResponseReflector =
+			new RegisterApplicationMasterResponseReflector(LOG, HasMethod.class);
+
+		final Optional<Set<String>> schedulerResourceTypeNames =
+			registerApplicationMasterResponseReflector.getSchedulerResourceTypeNamesUnsafe(new HasMethod());
+
+		assertTrue(schedulerResourceTypeNames.isPresent());
+		assertThat(schedulerResourceTypeNames.get(), containsInAnyOrder("MEMORY", "CPU"));
+	}
+
+	@Test
+	public void testDoesntCallGetSchedulerResourceTypesMethodIfAbsent() {
+		final RegisterApplicationMasterResponseReflector registerApplicationMasterResponseReflector =
+			new RegisterApplicationMasterResponseReflector(LOG, HasMethod.class);
+
+		final Optional<Set<String>> schedulerResourceTypeNames =
+			registerApplicationMasterResponseReflector.getSchedulerResourceTypeNamesUnsafe(new Object());
+
+		assertFalse(schedulerResourceTypeNames.isPresent());
+	}
+
+	@Test
+	public void testGetSchedulerResourceTypesMethodReflectiveHadoop26() {
+		assumeTrue(
+			"Method getSchedulerResourceTypes is not supported by Hadoop: " +
+				VersionInfo.getVersion(),
+			isHadoopVersionGreaterThanOrEquals(2, 6));
+
+		final RegisterApplicationMasterResponseReflector registerApplicationMasterResponseReflector =
+			new RegisterApplicationMasterResponseReflector(LOG);
+
+		final Method method = registerApplicationMasterResponseReflector.getGetSchedulerResourceTypesMethod();
 		assertThat(method, notNullValue());
 	}
 
@@ -99,11 +142,25 @@ public class RegisterApplicationMasterResponseReflectorTest extends TestLogger {
 	private class HasMethod {
 
 		/**
-		 * Called from {@link #testCallsMethodIfPresent()}.
+		 * Called from {@link #testCallsGetContainersFromPreviousAttemptsMethodIfPresent()}.
 		 */
 		@SuppressWarnings("unused")
 		public List<Container> getContainersFromPreviousAttempts() {
 			return Collections.singletonList(mockContainer);
 		}
+
+		/**
+		 * Called from {@link #testCallsGetSchedulerResourceTypesMethodIfPresent()}.
+		 */
+		@SuppressWarnings("unused")
+		public EnumSet<MockSchedulerResourceTypes> getSchedulerResourceTypes() {
+			return EnumSet.allOf(MockSchedulerResourceTypes.class);
+		}
+	}
+
+	@SuppressWarnings("unused")
+	private enum MockSchedulerResourceTypes {
+		MEMORY,
+		CPU
 	}
 }

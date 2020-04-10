@@ -19,6 +19,7 @@
 package org.apache.flink.yarn;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.util.Preconditions;
 
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.records.Container;
@@ -27,12 +28,15 @@ import org.slf4j.Logger;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
 /**
- * Looks up the method {@link RegisterApplicationMasterResponse#getContainersFromPreviousAttempts()}
- * once and saves the method. This saves computation time on subsequent calls.
+ * Looks up the version dependent methods of {@link RegisterApplicationMasterResponse} once and saves the methods.
+ * This saves computation time on subsequent calls.
  */
 class RegisterApplicationMasterResponseReflector {
 
@@ -41,7 +45,9 @@ class RegisterApplicationMasterResponseReflector {
 	/**
 	 * Reflected method {@link RegisterApplicationMasterResponse#getContainersFromPreviousAttempts()}.
 	 */
-	private Method method;
+	private Method getContainersFromPreviousAttemptsMethod;
+
+	private Method getSchedulerResourceTypesMethod;
 
 	RegisterApplicationMasterResponseReflector(final Logger log) {
 		this(log, RegisterApplicationMasterResponse.class);
@@ -53,11 +59,19 @@ class RegisterApplicationMasterResponseReflector {
 		requireNonNull(clazz);
 
 		try {
-			method = clazz.getMethod("getContainersFromPreviousAttempts");
+			getContainersFromPreviousAttemptsMethod = clazz.getMethod("getContainersFromPreviousAttempts");
 		} catch (NoSuchMethodException e) {
 			// that happens in earlier Hadoop versions (pre 2.2)
 			logger.info("Cannot reconnect to previously allocated containers. " +
 				"This YARN version does not support 'getContainersFromPreviousAttempts()'");
+		}
+
+		try {
+			getSchedulerResourceTypesMethod = clazz.getMethod("getSchedulerResourceTypes");
+		} catch (NoSuchMethodException e) {
+			// that happens in earlier Hadoop versions (pre 2.6)
+			logger.info("Cannot get scheduler resource types. " +
+				"This YARN version does not support 'getSchedulerResourceTypes()'");
 		}
 	}
 
@@ -80,10 +94,10 @@ class RegisterApplicationMasterResponseReflector {
 	 */
 	@VisibleForTesting
 	List<Container> getContainersFromPreviousAttemptsUnsafe(final Object response) {
-		if (method != null && response != null) {
+		if (getContainersFromPreviousAttemptsMethod != null && response != null) {
 			try {
 				@SuppressWarnings("unchecked")
-				final List<Container> containers = (List<Container>) method.invoke(response);
+				final List<Container> containers = (List<Container>) getContainersFromPreviousAttemptsMethod.invoke(response);
 				if (containers != null && !containers.isEmpty()) {
 					return containers;
 				}
@@ -96,7 +110,40 @@ class RegisterApplicationMasterResponseReflector {
 	}
 
 	@VisibleForTesting
-	Method getMethod() {
-		return method;
+	Method getGetContainersFromPreviousAttemptsMethod() {
+		return getContainersFromPreviousAttemptsMethod;
+	}
+
+	/**
+	 * Get names of resource types that are considered by the Yarn scheduler.
+	 * @param response The response object from the registration at the ResourceManager.
+	 * @return A set of resource type names, or {@link Optional#empty()} if the Yarn version does not support this API.
+	 */
+	Optional<Set<String>> getSchedulerResourceTypeNames(final RegisterApplicationMasterResponse response) {
+		return getSchedulerResourceTypeNamesUnsafe(response);
+	}
+
+	@VisibleForTesting
+	Optional<Set<String>> getSchedulerResourceTypeNamesUnsafe(final Object response) {
+		if (getSchedulerResourceTypesMethod != null && response != null) {
+			try {
+				@SuppressWarnings("unchecked")
+				final Set<? extends Enum> schedulerResourceTypes = (Set<? extends Enum>) getSchedulerResourceTypesMethod.invoke(response);
+				return Optional.of(
+					Preconditions.checkNotNull(schedulerResourceTypes)
+						.stream()
+						.map(Enum::name)
+						.collect(Collectors.toSet()));
+			} catch (Exception e) {
+				logger.error("Error invoking 'getSchedulerResourceTypes()'", e);
+			}
+		}
+
+		return Optional.empty();
+	}
+
+	@VisibleForTesting
+	Method getGetSchedulerResourceTypesMethod() {
+		return getSchedulerResourceTypesMethod;
 	}
 }
