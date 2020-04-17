@@ -252,7 +252,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			createKubernetesTaskManagerParameters(workerResourceSpec);
 
 		final KubernetesPod taskManagerPod =
-			KubernetesTaskManagerFactory.createTaskManagerComponent(parameters);
+			KubernetesTaskManagerFactory.buildTaskManagerKubernetesPod(parameters);
 		kubeClient.createTaskManagerPod(taskManagerPod)
 			.whenComplete(
 				(ignore, throwable) -> {
