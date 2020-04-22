@@ -96,6 +96,7 @@ import java.util.stream.Collectors;
 
 import static junit.framework.TestCase.assertEquals;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
@@ -487,19 +488,22 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 		new Context() {{
 			runTest(() -> {
 				registerSlotRequest();
-				assertThat(resourceManager.getNumPendingWorkersForTesting(), is(1));
+				final Pod pod1 = kubeClient.pods().list().getItems().get(0);
 
-				final Pod pod = kubeClient.pods().list().getItems().get(0);
-				terminatePod(pod);
+				terminatePod(pod1);
+				resourceManager.onModified(Collections.singletonList(new KubernetesPod(pod1)));
+				final Pod pod2 = kubeClient.pods().list().getItems().get(0);
+				assertThat(pod2, not(pod1));
 
-				resourceManager.onModified(Collections.singletonList(new KubernetesPod(pod)));
-				assertThat(resourceManager.getNumPendingWorkersForTesting(), is(1));
+				terminatePod(pod2);
+				resourceManager.onDeleted(Collections.singletonList(new KubernetesPod(pod2)));
+				final Pod pod3 = kubeClient.pods().list().getItems().get(0);
+				assertThat(pod3, not(pod2));
 
-				resourceManager.onDeleted(Collections.singletonList(new KubernetesPod(pod)));
-				assertThat(resourceManager.getNumPendingWorkersForTesting(), is(1));
-
-				resourceManager.onError(Collections.singletonList(new KubernetesPod(pod)));
-				assertThat(resourceManager.getNumPendingWorkersForTesting(), is(1));
+				terminatePod(pod3);
+				resourceManager.onError(Collections.singletonList(new KubernetesPod(pod3)));
+				final Pod pod4 = kubeClient.pods().list().getItems().get(0);
+				assertThat(pod4, not(pod3));
 			});
 		}};
 	}

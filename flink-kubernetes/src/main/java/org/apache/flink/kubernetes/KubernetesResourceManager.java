@@ -58,7 +58,6 @@ import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -251,29 +250,32 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		final KubernetesTaskManagerParameters parameters =
 			createKubernetesTaskManagerParameters(workerResourceSpec);
 
+		podWorkerResources.put(parameters.getPodName(), workerResourceSpec);
+		final int pendingWorkerNum = notifyNewWorkerRequested(workerResourceSpec);
+
+		log.info("Requesting new TaskManager pod with <{},{}>. Number pending requests {}.",
+			parameters.getTaskManagerMemoryMB(),
+			parameters.getTaskManagerCPU(),
+			pendingWorkerNum);
+
 		final KubernetesPod taskManagerPod =
 			KubernetesTaskManagerFactory.buildTaskManagerKubernetesPod(parameters);
 		kubeClient.createTaskManagerPod(taskManagerPod)
 			.whenComplete(
-				(ignore, throwable) -> {
+				(ignore, throwable) -> runAsync(() -> {
 					if (throwable != null) {
 						final Time retryInterval = configuration.getPodCreationRetryInterval();
-						log.error("Could not start TaskManager in pod {}, retry in {}. ",
+						log.warn("Could not start TaskManager in pod {}, retry in {}. ",
 							taskManagerPod.getName(), retryInterval, throwable);
+						podWorkerResources.remove(parameters.getPodName());
+						notifyNewWorkerAllocationFailed(workerResourceSpec);
 						scheduleRunAsync(
-							() -> requestKubernetesPodIfRequired(workerResourceSpec),
+							this::requestKubernetesPodIfRequired,
 							retryInterval);
 					} else {
-						podWorkerResources.put(parameters.getPodName(), workerResourceSpec);
-						final int pendingWorkerNum = notifyNewWorkerRequested(workerResourceSpec);
-
-						log.info("Requesting new TaskManager pod with <{},{}>. Number pending requests {}.",
-							parameters.getTaskManagerMemoryMB(),
-							parameters.getTaskManagerCPU(),
-							pendingWorkerNum);
 						log.info("TaskManager {} will be started with {}.", parameters.getPodName(), workerResourceSpec);
 					}
-				}
+				})
 			);
 	}
 
@@ -303,17 +305,21 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	/**
 	 * Request new pod if pending pods cannot satisfy pending slot requests.
 	 */
-	private void requestKubernetesPodIfRequired(WorkerResourceSpec workerResourceSpec) {
-		final int requiredTaskManagers = getRequiredResources().get(workerResourceSpec);
+	private void requestKubernetesPodIfRequired() {
+		for (Map.Entry<WorkerResourceSpec, Integer> entry : getRequiredResources().entrySet()) {
+			final WorkerResourceSpec workerResourceSpec = entry.getKey();
+			final int requiredTaskManagers = entry.getValue();
 
-		while (requiredTaskManagers > getNumPendingWorkersFor(workerResourceSpec)) {
-			requestKubernetesPod(workerResourceSpec);
+			while (requiredTaskManagers > getNumPendingWorkersFor(workerResourceSpec)) {
+				requestKubernetesPod(workerResourceSpec);
+			}
 		}
 	}
 
 	private void removePodIfTerminated(KubernetesPod pod) {
 		if (pod.isTerminated()) {
-			internalStopPod(pod.getName()).ifPresent(this::requestKubernetesPodIfRequired);
+			internalStopPod(pod.getName());
+			requestKubernetesPodIfRequired();
 		}
 	}
 
@@ -322,27 +328,31 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		return TaskExecutorProcessUtils.getCpuCoresWithFallbackConfigOption(configuration, KubernetesConfigOptions.TASK_MANAGER_CPU);
 	}
 
-	private Optional<WorkerResourceSpec> internalStopPod(String podName) {
+	private void internalStopPod(String podName) {
 		final ResourceID resourceId = new ResourceID(podName);
+		final boolean isPendingWorkerOfCurrentAttempt = isPendingWorkerOfCurrentAttempt(podName);
 
 		kubeClient.stopPod(podName)
 			.whenComplete(
 				(ignore, throwable) -> {
 					if (throwable != null) {
-						log.error("Could not stop TaskManager in pod {}.", podName, throwable);
+						log.warn("Could not stop TaskManager in pod {}.", podName, throwable);
 					}
 				}
 			);
 
-		final KubernetesWorkerNode kubernetesWorkerNode = workerNodes.remove(resourceId);
 		final WorkerResourceSpec workerResourceSpec = podWorkerResources.remove(podName);
+		workerNodes.remove(resourceId);
 
-		// If the stopped pod is requested in the current attempt (workerResourceSpec is known) and is not yet added,
-		// we need to notify ActiveResourceManager to decrease the pending worker count.
-		if (workerResourceSpec != null && kubernetesWorkerNode == null) {
-			notifyNewWorkerAllocationFailed(workerResourceSpec);
+		if (isPendingWorkerOfCurrentAttempt) {
+			notifyNewWorkerAllocationFailed(
+				Preconditions.checkNotNull(workerResourceSpec,
+					"Worker resource spec of current attempt pending worker should be known."));
 		}
+	}
 
-		return Optional.ofNullable(workerResourceSpec);
+	private boolean isPendingWorkerOfCurrentAttempt(String podName) {
+		return podWorkerResources.containsKey(podName) &&
+			!workerNodes.containsKey(new ResourceID(podName));
 	}
 }
