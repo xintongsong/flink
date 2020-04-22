@@ -212,17 +212,17 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	@Override
 	public void onModified(List<KubernetesPod> pods) {
-		runAsync(() -> pods.forEach(this::removePodIfTerminated));
+		runAsync(() -> pods.forEach(this::removePodAndTryRestartIfRequired));
 	}
 
 	@Override
 	public void onDeleted(List<KubernetesPod> pods) {
-		runAsync(() -> pods.forEach(this::removePodIfTerminated));
+		runAsync(() -> pods.forEach(this::removePodAndTryRestartIfRequired));
 	}
 
 	@Override
 	public void onError(List<KubernetesPod> pods) {
-		runAsync(() -> pods.forEach(this::removePodIfTerminated));
+		runAsync(() -> pods.forEach(this::removePodAndTryRestartIfRequired));
 	}
 
 	@VisibleForTesting
@@ -316,7 +316,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		}
 	}
 
-	private void removePodIfTerminated(KubernetesPod pod) {
+	private void removePodAndTryRestartIfRequired(KubernetesPod pod) {
 		if (pod.isTerminated()) {
 			internalStopPod(pod.getName());
 			requestKubernetesPodIfRequired();
