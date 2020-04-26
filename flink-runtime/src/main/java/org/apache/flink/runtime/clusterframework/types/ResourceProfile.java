@@ -396,8 +396,9 @@ public class ResourceProfile implements Serializable {
 		}
 
 		Map<String, Resource> resultExtendedResource = new HashMap<>(extendedResources.size());
-		extendedResources.forEach((String name, Resource resource) ->
-			resultExtendedResource.put(name, resource.multiply(multiplier)));
+		for (Map.Entry<String, Resource> entry : extendedResources.entrySet()) {
+			resultExtendedResource.put(entry.getKey(), entry.getValue().multiply(multiplier));
+		}
 
 		return new ResourceProfile(
 			cpuCores.multiply(multiplier),
