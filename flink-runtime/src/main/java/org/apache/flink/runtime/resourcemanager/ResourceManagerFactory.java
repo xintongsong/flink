@@ -26,6 +26,7 @@ import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.metrics.MetricRegistry;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
+import org.apache.flink.runtime.metrics.groups.SlotManagerMetricGroup;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.util.ConfigurationException;
@@ -51,9 +52,11 @@ public abstract class ResourceManagerFactory<T extends ResourceIDRetrievable> {
 			MetricRegistry metricRegistry,
 			String hostname) throws Exception {
 
-		final ResourceManagerRuntimeServices resourceManagerRuntimeServices = createResourceManagerRuntimeServices(
-			configuration, rpcService, highAvailabilityServices, metricRegistry, hostname);
 		final ResourceManagerMetricGroup resourceManagerMetricGroup = ResourceManagerMetricGroup.create(metricRegistry, hostname);
+		final SlotManagerMetricGroup slotManagerMetricGroup = SlotManagerMetricGroup.create(metricRegistry, hostname);
+
+		final ResourceManagerRuntimeServices resourceManagerRuntimeServices = createResourceManagerRuntimeServices(
+			configuration, rpcService, highAvailabilityServices, slotManagerMetricGroup);
 
 		return createResourceManager(
 			configuration,
@@ -84,15 +87,13 @@ public abstract class ResourceManagerFactory<T extends ResourceIDRetrievable> {
 			Configuration configuration,
 			RpcService rpcService,
 			HighAvailabilityServices highAvailabilityServices,
-			MetricRegistry metricRegistry,
-			String hostname) throws ConfigurationException {
+			SlotManagerMetricGroup slotManagerMetricGroup) throws ConfigurationException {
 
 		return ResourceManagerRuntimeServices.fromConfiguration(
 			createResourceManagerRuntimeServicesConfiguration(configuration),
 			highAvailabilityServices,
 			rpcService.getScheduledExecutor(),
-			metricRegistry,
-			hostname);
+			slotManagerMetricGroup);
 	}
 
 	protected abstract ResourceManagerRuntimeServicesConfiguration createResourceManagerRuntimeServicesConfiguration(

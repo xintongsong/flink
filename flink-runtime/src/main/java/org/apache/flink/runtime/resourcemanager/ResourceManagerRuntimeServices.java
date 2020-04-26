@@ -20,7 +20,6 @@ package org.apache.flink.runtime.resourcemanager;
 
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
-import org.apache.flink.runtime.metrics.MetricRegistry;
 import org.apache.flink.runtime.metrics.groups.SlotManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManagerImpl;
@@ -53,10 +52,12 @@ public class ResourceManagerRuntimeServices {
 			ResourceManagerRuntimeServicesConfiguration configuration,
 			HighAvailabilityServices highAvailabilityServices,
 			ScheduledExecutor scheduledExecutor,
-			MetricRegistry metricRegistry,
-			String hostname) {
+			SlotManagerMetricGroup slotManagerMetricGroup) {
 
-		final SlotManager slotManager = createSlotManager(configuration, scheduledExecutor, metricRegistry, hostname);
+		final SlotManager slotManager = new SlotManagerImpl(
+			scheduledExecutor,
+			configuration.getSlotManagerConfiguration(),
+			slotManagerMetricGroup);
 
 		final JobLeaderIdService jobLeaderIdService = new JobLeaderIdService(
 			highAvailabilityServices,
@@ -64,17 +65,5 @@ public class ResourceManagerRuntimeServices {
 			configuration.getJobTimeout());
 
 		return new ResourceManagerRuntimeServices(slotManager, jobLeaderIdService);
-	}
-
-	private static SlotManager createSlotManager(
-			ResourceManagerRuntimeServicesConfiguration configuration,
-			ScheduledExecutor scheduledExecutor,
-			MetricRegistry metricRegistry,
-			String hostname) {
-		final SlotManagerMetricGroup slotManagerMetricGroup = SlotManagerMetricGroup.create(metricRegistry, hostname);
-		return new SlotManagerImpl(
-			scheduledExecutor,
-			configuration.getSlotManagerConfiguration(),
-			slotManagerMetricGroup);
 	}
 }
