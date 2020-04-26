@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 /**
  * Contains information of a {@link ResourceProfile}.
  */
-public class ResourceProfileInfo {
+public class ResourceProfileInfo implements ResponseBody {
 
 	public static final String FIELD_NAME_CPU = "cpuCores";
 
