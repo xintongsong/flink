@@ -394,8 +394,8 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 	}
 
 	@Override
-	public CompletableFuture<Void> onStop() {
-		return stopSupportingActorsAsync().thenCompose((ignored) -> super.onStop());
+	public void terminate() throws Throwable {
+		stopSupportingActorsAsync().get();
 	}
 
 	@Override

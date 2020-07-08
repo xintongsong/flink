@@ -62,7 +62,6 @@ import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Kubernetes specific implementation of the {@link ResourceManager}.
@@ -142,7 +141,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	}
 
 	@Override
-	public CompletableFuture<Void> onStop() {
+	public void terminate() throws Throwable {
 		// shut down all components
 		Throwable throwable = null;
 
@@ -158,7 +157,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			throwable = ExceptionUtils.firstOrSuppressed(t, throwable);
 		}
 
-		return getStopTerminationFutureOrCompletedExceptionally(throwable);
+		ExceptionUtils.tryRethrowThrowable(throwable);
 	}
 
 	@Override
