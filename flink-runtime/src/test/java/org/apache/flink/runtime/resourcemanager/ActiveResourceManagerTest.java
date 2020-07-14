@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.resourcemanager;
 
+import org.apache.flink.runtime.resourcemanager.active.PendingWorkerCounter;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.Test;
@@ -35,7 +36,7 @@ public class ActiveResourceManagerTest extends TestLogger {
 		final WorkerResourceSpec spec1 = new WorkerResourceSpec.Builder().setCpuCores(1.0).build();
 		final WorkerResourceSpec spec2 = new WorkerResourceSpec.Builder().setCpuCores(2.0).build();
 
-		final ActiveResourceManager.PendingWorkerCounter counter = new ActiveResourceManager.PendingWorkerCounter();
+		final PendingWorkerCounter counter = new PendingWorkerCounter();
 		assertThat(counter.getTotalNum(), is(0));
 		assertThat(counter.getNum(spec1), is(0));
 		assertThat(counter.getNum(spec2), is(0));
@@ -69,7 +70,7 @@ public class ActiveResourceManagerTest extends TestLogger {
 	@Test(expected = IllegalStateException.class)
 	public void testPendingWorkerCounterDecreaseOnZero() {
 		final WorkerResourceSpec spec = new WorkerResourceSpec.Builder().build();
-		final ActiveResourceManager.PendingWorkerCounter counter = new ActiveResourceManager.PendingWorkerCounter();
+		final PendingWorkerCounter counter = new PendingWorkerCounter();
 		counter.decreaseAndGet(spec);
 	}
 }
