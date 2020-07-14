@@ -29,7 +29,6 @@ import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
-import org.apache.flink.runtime.resourcemanager.registration.WorkerRegistration;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -102,8 +101,8 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	protected abstract Configuration loadClientConfiguration();
 
 	@Override
-	protected void onTaskManagerRegistration(WorkerRegistration<WorkerType> workerTypeWorkerRegistration) {
-		notifyAllocatedWorkerRegistered(workerTypeWorkerRegistration.getResourceID());
+	protected void onWorkerRegistered(WorkerType worker) {
+		notifyAllocatedWorkerRegistered(worker.getResourceID());
 	}
 
 	protected int getNumRequestedNotAllocatedWorkers() {
