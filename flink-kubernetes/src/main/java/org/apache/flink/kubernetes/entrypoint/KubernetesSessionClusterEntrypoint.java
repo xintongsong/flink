@@ -39,7 +39,7 @@ public class KubernetesSessionClusterEntrypoint extends SessionClusterEntrypoint
 	@Override
 	protected DispatcherResourceManagerComponentFactory createDispatcherResourceManagerComponentFactory(Configuration configuration) {
 		return DefaultDispatcherResourceManagerComponentFactory.createSessionComponentFactory(
-			KubernetesResourceManagerFactory.getInstance());
+			NewKubernetesResourceManagerFactory.getInstance());
 	}
 
 	public static void main(String[] args) {

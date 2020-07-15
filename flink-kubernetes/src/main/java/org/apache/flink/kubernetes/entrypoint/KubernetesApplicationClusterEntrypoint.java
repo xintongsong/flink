@@ -50,7 +50,7 @@ public final class KubernetesApplicationClusterEntrypoint extends ApplicationClu
 	private KubernetesApplicationClusterEntrypoint(
 			final Configuration configuration,
 			final PackagedProgram program) {
-		super(configuration, program, KubernetesResourceManagerFactory.getInstance());
+		super(configuration, program, NewKubernetesResourceManagerFactory.getInstance());
 	}
 
 	public static void main(final String[] args) {
