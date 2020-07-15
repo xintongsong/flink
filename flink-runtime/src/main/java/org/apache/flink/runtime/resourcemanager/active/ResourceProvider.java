@@ -21,7 +21,6 @@ package org.apache.flink.runtime.resourcemanager.active;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.runtime.clusterframework.types.ResourceIDRetrievable;
-import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 
 import javax.annotation.Nullable;
@@ -36,7 +35,7 @@ public interface ResourceProvider<WorkerType extends ResourceIDRetrievable> {
 	/**
 	 * Initialize the deployment specific components.
 	 */
-	void initialize(ResourceEventListener<WorkerType> resourceEventListener, ComponentMainThreadExecutor mainThreadExecutor) throws Throwable;
+	void initialize(ResourceEventListener<WorkerType> resourceEventListener) throws Throwable;
 
 	/**
 	 * Terminate the deployment specific components.

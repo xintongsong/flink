@@ -34,10 +34,8 @@ import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
-import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.externalresource.ExternalResourceUtils;
 import org.apache.flink.runtime.resourcemanager.active.AbstractResourceProvider;
-import org.apache.flink.runtime.resourcemanager.active.ResourceEventListener;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -98,12 +96,7 @@ public class KubernetesResourceProvider extends AbstractResourceProvider<Kuberne
 	// ------------------------------------------------------------------------
 
 	@Override
-	public void initialize(
-			ResourceEventListener<KubernetesWorkerNode> resourceEventListener,
-			ComponentMainThreadExecutor mainThreadExecutor) throws Throwable{
-		setResourceEventListener(resourceEventListener);
-		setMainThreadExecutor(mainThreadExecutor);
-
+	protected final void initializeInternal() throws Throwable {
 		recoverWorkerNodesFromPreviousAttempts();
 
 		podsWatch = kubeClient.watchPodsAndDoCallback(
@@ -159,8 +152,8 @@ public class KubernetesResourceProvider extends AbstractResourceProvider<Kuberne
 		// TODO: add retry interval
 
 		kubeClient.createTaskManagerPod(taskManagerPod)
-			.whenCompleteAsync(
-				(ignore, throwable) -> {
+			.whenComplete(
+				(ignore, throwable) -> getResourceEventListener().executeOnMainThread(() -> {
 					if (throwable != null) {
 						log.warn("Could not create pod {}, exception: {}", podName, throwable);
 						CompletableFuture<KubernetesWorkerNode> future =
@@ -171,8 +164,7 @@ public class KubernetesResourceProvider extends AbstractResourceProvider<Kuberne
 					} else {
 						log.info("Pod {} is created.", podName);
 					}
-				},
-				getMainThreadExecutor());
+				}));
 		return requestResourceFuture;
 	}
 
@@ -191,7 +183,7 @@ public class KubernetesResourceProvider extends AbstractResourceProvider<Kuberne
 
 	@Override
 	public void onAdded(List<KubernetesPod> pods) {
-		getMainThreadExecutor().execute(() -> {
+		getResourceEventListener().executeOnMainThread(() -> {
 			for (KubernetesPod pod : pods) {
 				final String podName = pod.getName();
 				final CompletableFuture<KubernetesWorkerNode> requestResourceFuture = requestResourceFutures.remove(podName);
@@ -224,7 +216,7 @@ public class KubernetesResourceProvider extends AbstractResourceProvider<Kuberne
 
 	@Override
 	public void handleFatalError(Throwable throwable) {
-		getMainThreadExecutor().execute(() -> getResourceEventListener().onError(throwable));
+		getResourceEventListener().executeOnMainThread(() -> getResourceEventListener().onError(throwable));
 	}
 
 	// ------------------------------------------------------------------------
@@ -276,7 +268,7 @@ public class KubernetesResourceProvider extends AbstractResourceProvider<Kuberne
 	}
 
 	private void terminatedPodsInMainThread(List<KubernetesPod> pods) {
-		getMainThreadExecutor().execute(() -> {
+		getResourceEventListener().executeOnMainThread(() -> {
 			for (KubernetesPod pod : pods) {
 				if (pod.isTerminated()) {
 					final String podName = pod.getName();

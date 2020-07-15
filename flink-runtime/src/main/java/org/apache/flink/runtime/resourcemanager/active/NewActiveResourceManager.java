@@ -104,7 +104,7 @@ public class NewActiveResourceManager<WorkerType extends ResourceIDRetrievable>
 	@Override
 	protected void initialize() throws ResourceManagerException {
 		try {
-			resourceProvider.initialize(this, getMainThreadExecutor());
+			resourceProvider.initialize(this);
 		} catch (Throwable t) {
 			throw new ResourceManagerException("Cannot initialize resource provider.", t);
 		}
@@ -193,6 +193,11 @@ public class NewActiveResourceManager<WorkerType extends ResourceIDRetrievable>
 	@Override
 	public void onError(Throwable exception) {
 		onFatalError(exception);
+	}
+
+	@Override
+	public void executeOnMainThread(Runnable command) {
+		runAsync(command);
 	}
 
 	// ------------------------------------------------------------------------

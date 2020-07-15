@@ -20,7 +20,6 @@ package org.apache.flink.runtime.resourcemanager.active;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.clusterframework.types.ResourceIDRetrievable;
-import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
@@ -38,7 +37,6 @@ public abstract class AbstractResourceProvider<WorkerType extends ResourceIDRetr
 	protected final Configuration flinkClientConfig;
 
 	private ResourceEventListener<WorkerType> resourceEventListener = null;
-	private ComponentMainThreadExecutor mainThreadExecutor = null;
 
 	public AbstractResourceProvider(
 			final Configuration flinkConfig,
@@ -47,27 +45,16 @@ public abstract class AbstractResourceProvider<WorkerType extends ResourceIDRetr
 		this.flinkClientConfig = Preconditions.checkNotNull(flinkClientConfg);
 	}
 
-	protected void setResourceEventListener(ResourceEventListener<WorkerType> resourceEventListener) {
-		Preconditions.checkState(this.resourceEventListener == null,
-			"Only allow setting resource event listener for once.");
+	@Override
+	public final void initialize(ResourceEventListener<WorkerType> resourceEventListener) throws Throwable {
 		this.resourceEventListener = Preconditions.checkNotNull(resourceEventListener);
+		initializeInternal();
 	}
 
-	protected ResourceEventListener<WorkerType> getResourceEventListener() {
-		Preconditions.checkState(this.resourceEventListener != null,
-			"Do not allow getting resource event listener before setting.");
+	protected final ResourceEventListener<WorkerType> getResourceEventListener() {
+		Preconditions.checkState(this.resourceEventListener != null, "Not initialized.");
 		return this.resourceEventListener;
 	}
 
-	protected void setMainThreadExecutor(ComponentMainThreadExecutor mainThreadExecutor) {
-		Preconditions.checkState(this.mainThreadExecutor == null,
-			"Only allow setting main thread executor for once.");
-		this.mainThreadExecutor = Preconditions.checkNotNull(mainThreadExecutor);
-	}
-
-	protected ComponentMainThreadExecutor getMainThreadExecutor() {
-		Preconditions.checkState(this.mainThreadExecutor != null,
-			"Do not allow getting main thread executor before setting.");
-		return this.mainThreadExecutor;
-	}
+	protected abstract void initializeInternal() throws Throwable;
 }

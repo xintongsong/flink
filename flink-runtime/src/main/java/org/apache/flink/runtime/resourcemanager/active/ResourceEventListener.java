@@ -51,5 +51,7 @@ public interface ResourceEventListener<WorkerType extends ResourceIDRetrievable>
 	 * @param exception Exception that describes the error.
 	 */
 	void onError(Throwable exception);
+
+	void executeOnMainThread(Runnable command);
 }
 
