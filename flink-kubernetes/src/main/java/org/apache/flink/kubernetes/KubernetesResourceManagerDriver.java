@@ -35,7 +35,7 @@ import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameter
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.externalresource.ExternalResourceUtils;
-import org.apache.flink.runtime.resourcemanager.active.AbstractResourceProvider;
+import org.apache.flink.runtime.resourcemanager.active.AbstractResourceManagerDriver;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -53,10 +53,10 @@ import java.util.concurrent.CompletableFuture;
 /**
  * KubernetesResourceProvider.
  */
-public class KubernetesResourceProvider extends AbstractResourceProvider<KubernetesWorkerNode>
+public class KubernetesResourceManagerDriver extends AbstractResourceManagerDriver<KubernetesWorkerNode>
 	implements FlinkKubeClient.PodCallbackHandler {
 
-	private static final Logger LOG = LoggerFactory.getLogger(KubernetesResourceProvider.class);
+	private static final Logger LOG = LoggerFactory.getLogger(KubernetesResourceManagerDriver.class);
 
 	/** The taskmanager pod name pattern is {clusterId}-{taskmanager}-{attemptId}-{podIndex}. */
 	private static final String TASK_MANAGER_POD_FORMAT = "%s-taskmanager-%d-%d";
@@ -78,7 +78,7 @@ public class KubernetesResourceProvider extends AbstractResourceProvider<Kuberne
 
 	private KubernetesWatch podsWatch;
 
-	public KubernetesResourceProvider(
+	public KubernetesResourceManagerDriver(
 			Configuration flinkConfig,
 			FlinkKubeClient kubeClient,
 			KubernetesResourceManagerConfiguration configuration) {
@@ -153,7 +153,7 @@ public class KubernetesResourceProvider extends AbstractResourceProvider<Kuberne
 
 		kubeClient.createTaskManagerPod(taskManagerPod)
 			.whenComplete(
-				(ignore, throwable) -> getResourceEventListener().executeOnMainThread(() -> {
+				(ignore, throwable) -> getResourceEventHandler().handleInMainThread(() -> {
 					if (throwable != null) {
 						log.warn("Could not create pod {}, exception: {}", podName, throwable);
 						CompletableFuture<KubernetesWorkerNode> future =
@@ -183,7 +183,7 @@ public class KubernetesResourceProvider extends AbstractResourceProvider<Kuberne
 
 	@Override
 	public void onAdded(List<KubernetesPod> pods) {
-		getResourceEventListener().executeOnMainThread(() -> {
+		getResourceEventHandler().handleInMainThread(() -> {
 			for (KubernetesPod pod : pods) {
 				final String podName = pod.getName();
 				final CompletableFuture<KubernetesWorkerNode> requestResourceFuture = requestResourceFutures.remove(podName);
@@ -216,7 +216,7 @@ public class KubernetesResourceProvider extends AbstractResourceProvider<Kuberne
 
 	@Override
 	public void handleFatalError(Throwable throwable) {
-		getResourceEventListener().executeOnMainThread(() -> getResourceEventListener().onError(throwable));
+		getResourceEventHandler().handleInMainThread(() -> getResourceEventHandler().onError(throwable));
 	}
 
 	// ------------------------------------------------------------------------
@@ -240,7 +240,7 @@ public class KubernetesResourceProvider extends AbstractResourceProvider<Kuberne
 			recoveredWorkers.size(),
 			++currentMaxAttemptId);
 
-		getResourceEventListener().onPreviousAttemptWorkersRecovered(recoveredWorkers);
+		getResourceEventHandler().onPreviousAttemptWorkersRecovered(recoveredWorkers);
 	}
 
 	private KubernetesTaskManagerParameters createKubernetesTaskManagerParameters(TaskExecutorProcessSpec taskExecutorProcessSpec) {
@@ -268,12 +268,12 @@ public class KubernetesResourceProvider extends AbstractResourceProvider<Kuberne
 	}
 
 	private void terminatedPodsInMainThread(List<KubernetesPod> pods) {
-		getResourceEventListener().executeOnMainThread(() -> {
+		getResourceEventHandler().handleInMainThread(() -> {
 			for (KubernetesPod pod : pods) {
 				if (pod.isTerminated()) {
 					final String podName = pod.getName();
 					log.info("TaskManager pod {} is terminated.", podName);
-					getResourceEventListener().onWorkerTerminated(new ResourceID(podName));
+					getResourceEventHandler().onWorkerTerminated(new ResourceID(podName));
 					removePod(podName);
 				}
 			}

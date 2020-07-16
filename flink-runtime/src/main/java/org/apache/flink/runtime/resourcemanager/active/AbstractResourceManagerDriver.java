@@ -28,17 +28,17 @@ import org.slf4j.LoggerFactory;
 /**
  * AbstractResourceProvider.
  */
-public abstract class AbstractResourceProvider<WorkerType extends ResourceIDRetrievable>
-	implements ResourceProvider<WorkerType> {
+public abstract class AbstractResourceManagerDriver<WorkerType extends ResourceIDRetrievable>
+	implements ResourceManagerDriver<WorkerType> {
 
 	protected final Logger log = LoggerFactory.getLogger(getClass());
 
 	protected final Configuration flinkConfig;
 	protected final Configuration flinkClientConfig;
 
-	private ResourceEventListener<WorkerType> resourceEventListener = null;
+	private ResourceEventHandler<WorkerType> resourceEventHandler = null;
 
-	public AbstractResourceProvider(
+	public AbstractResourceManagerDriver(
 			final Configuration flinkConfig,
 			final Configuration flinkClientConfg) {
 		this.flinkConfig = Preconditions.checkNotNull(flinkConfig);
@@ -46,14 +46,14 @@ public abstract class AbstractResourceProvider<WorkerType extends ResourceIDRetr
 	}
 
 	@Override
-	public final void initialize(ResourceEventListener<WorkerType> resourceEventListener) throws Throwable {
-		this.resourceEventListener = Preconditions.checkNotNull(resourceEventListener);
+	public final void initialize(ResourceEventHandler<WorkerType> resourceEventHandler) throws Throwable {
+		this.resourceEventHandler = Preconditions.checkNotNull(resourceEventHandler);
 		initializeInternal();
 	}
 
-	protected final ResourceEventListener<WorkerType> getResourceEventListener() {
-		Preconditions.checkState(this.resourceEventListener != null, "Not initialized.");
-		return this.resourceEventListener;
+	protected final ResourceEventHandler<WorkerType> getResourceEventHandler() {
+		Preconditions.checkState(this.resourceEventHandler != null, "Not initialized.");
+		return this.resourceEventHandler;
 	}
 
 	protected abstract void initializeInternal() throws Throwable;

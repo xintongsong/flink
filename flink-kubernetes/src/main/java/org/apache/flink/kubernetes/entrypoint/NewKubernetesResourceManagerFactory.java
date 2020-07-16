@@ -20,14 +20,14 @@ package org.apache.flink.kubernetes.entrypoint;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.kubernetes.KubernetesResourceProvider;
+import org.apache.flink.kubernetes.KubernetesResourceManagerDriver;
 import org.apache.flink.kubernetes.KubernetesWorkerNode;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesResourceManagerConfiguration;
 import org.apache.flink.kubernetes.kubeclient.KubeClientFactory;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerRuntimeServicesConfiguration;
 import org.apache.flink.runtime.resourcemanager.active.NewActiveResourceManagerFactory;
-import org.apache.flink.runtime.resourcemanager.active.ResourceProvider;
+import org.apache.flink.runtime.resourcemanager.active.ResourceManagerDriver;
 import org.apache.flink.util.ConfigurationException;
 
 /**
@@ -46,13 +46,13 @@ public class NewKubernetesResourceManagerFactory extends NewActiveResourceManage
 	}
 
 	@Override
-	protected ResourceProvider<KubernetesWorkerNode> createResourceProvider(Configuration configuration) {
+	protected ResourceManagerDriver<KubernetesWorkerNode> createResourceManagerDriver(Configuration configuration) {
 		final KubernetesResourceManagerConfiguration kubernetesResourceManagerConfiguration =
 			new KubernetesResourceManagerConfiguration(
 				configuration.getString(KubernetesConfigOptions.CLUSTER_ID),
 				POD_CREATION_RETRY_INTERVAL);
 
-		return new KubernetesResourceProvider(
+		return new KubernetesResourceManagerDriver(
 			configuration,
 			KubeClientFactory.fromConfiguration(configuration),
 			kubernetesResourceManagerConfiguration);

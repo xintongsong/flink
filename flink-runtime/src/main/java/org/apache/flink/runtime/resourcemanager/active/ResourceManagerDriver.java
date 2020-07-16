@@ -28,14 +28,14 @@ import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * A {@link ResourceProvider} is responsible for requesting and releasing resources from a particular external resource manager.
+ * A {@link ResourceManagerDriver} is responsible for requesting and releasing resources from a particular external resource manager.
  */
-public interface ResourceProvider<WorkerType extends ResourceIDRetrievable> {
+public interface ResourceManagerDriver<WorkerType extends ResourceIDRetrievable> {
 
 	/**
 	 * Initialize the deployment specific components.
 	 */
-	void initialize(ResourceEventListener<WorkerType> resourceEventListener) throws Throwable;
+	void initialize(ResourceEventHandler<WorkerType> resourceEventHandler) throws Throwable;
 
 	/**
 	 * Terminate the deployment specific components.
@@ -64,11 +64,11 @@ public interface ResourceProvider<WorkerType extends ResourceIDRetrievable> {
 	 *
 	 * <p>Note: Success completion of the returned future does not necessarily mean the success of resource allocation
 	 * and task manager launching. Allocation and launching failures can still happen after the future completion. In
-	 * such cases, {@link ResourceEventListener#onWorkerTerminated} will be called.
+	 * such cases, {@link ResourceEventHandler#onWorkerTerminated} will be called.
 	 *
 	 * <p>The future is guaranteed to be completed in the rpc main thread, before trying to launch the task manager,
 	 * thus before the task manager registration. It is also guaranteed that
-	 * {@link ResourceEventListener#onWorkerTerminated} will not be called on the requested worker, until the returned
+	 * {@link ResourceEventHandler#onWorkerTerminated} will not be called on the requested worker, until the returned
 	 * future is completed successfully.
 	 *
 	 * @param taskExecutorProcessSpec Resource specification of the requested worker.

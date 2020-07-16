@@ -27,7 +27,7 @@ import java.util.Collection;
 /**
  * Callback interfaces for handling resource events from external resource managers.
  */
-public interface ResourceEventListener<WorkerType extends ResourceIDRetrievable> {
+public interface ResourceEventHandler<WorkerType extends ResourceIDRetrievable> {
 
 	/**
 	 * Notifies that workers of previous attempt have been recovered from the external resource manager.
@@ -39,7 +39,7 @@ public interface ResourceEventListener<WorkerType extends ResourceIDRetrievable>
 	/**
 	 * Notifies that the worker has been terminated.
 	 *
-	 * <p>See also {@link ResourceProvider#requestResource}.
+	 * <p>See also {@link ResourceManagerDriver#requestResource}.
 	 *
 	 *  @param resourceId Identifier of the terminated worker.
 	 */
@@ -52,6 +52,10 @@ public interface ResourceEventListener<WorkerType extends ResourceIDRetrievable>
 	 */
 	void onError(Throwable exception);
 
-	void executeOnMainThread(Runnable command);
+	/**
+	 * Execute given runnable in the rpc main thread.
+	 * @param runnable Runnable to be executed.
+	 */
+	void handleInMainThread(Runnable runnable);
 }
 

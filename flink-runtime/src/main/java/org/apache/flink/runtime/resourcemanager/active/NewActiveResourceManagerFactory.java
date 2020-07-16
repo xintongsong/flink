@@ -90,7 +90,7 @@ public abstract class NewActiveResourceManagerFactory<WorkerType extends Resourc
 		ResourceManagerRuntimeServices resourceManagerRuntimeServices) {
 
 		return new NewActiveResourceManager<>(
-			createResourceProvider(configuration),
+			createResourceManagerDriver(configuration),
 			configuration,
 			rpcService,
 			resourceId,
@@ -104,5 +104,5 @@ public abstract class NewActiveResourceManagerFactory<WorkerType extends Resourc
 			resourceManagerMetricGroup);
 	}
 
-	protected abstract ResourceProvider<WorkerType> createResourceProvider(Configuration configuration);
+	protected abstract ResourceManagerDriver<WorkerType> createResourceManagerDriver(Configuration configuration);
 }

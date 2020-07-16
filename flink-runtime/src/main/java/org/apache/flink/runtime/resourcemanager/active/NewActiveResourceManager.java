@@ -49,11 +49,11 @@ import java.util.Map;
  * NewActiveResourceManager.
  */
 public class NewActiveResourceManager<WorkerType extends ResourceIDRetrievable>
-		extends ResourceManager<WorkerType> implements ResourceEventListener<WorkerType> {
+		extends ResourceManager<WorkerType> implements ResourceEventHandler<WorkerType> {
 
 	protected final Configuration flinkConfig;
 
-	private final ResourceProvider<WorkerType> resourceProvider;
+	private final ResourceManagerDriver<WorkerType> resourceManagerDriver;
 
 	/** All workers maintained by {@link NewActiveResourceManager}. */
 	private final Map<ResourceID, WorkerType> workerNodeMap;
@@ -65,7 +65,7 @@ public class NewActiveResourceManager<WorkerType extends ResourceIDRetrievable>
 	private final Map<ResourceID, WorkerResourceSpec> currentAttemptUnregisteredWorkers;
 
 	public NewActiveResourceManager(
-			ResourceProvider<WorkerType> resourceProvider,
+			ResourceManagerDriver<WorkerType> resourceManagerDriver,
 			Configuration flinkConfig,
 			RpcService rpcService,
 			ResourceID resourceId,
@@ -91,7 +91,7 @@ public class NewActiveResourceManager<WorkerType extends ResourceIDRetrievable>
 			AkkaUtils.getTimeoutAsTime(Preconditions.checkNotNull(flinkConfig)));
 
 		this.flinkConfig = flinkConfig;
-		this.resourceProvider = Preconditions.checkNotNull(resourceProvider);
+		this.resourceManagerDriver = Preconditions.checkNotNull(resourceManagerDriver);
 		this.workerNodeMap = new HashMap<>();
 		this.pendingWorkerCounter = new PendingWorkerCounter();
 		this.currentAttemptUnregisteredWorkers = new HashMap<>();
@@ -104,7 +104,7 @@ public class NewActiveResourceManager<WorkerType extends ResourceIDRetrievable>
 	@Override
 	protected void initialize() throws ResourceManagerException {
 		try {
-			resourceProvider.initialize(this);
+			resourceManagerDriver.initialize(this);
 		} catch (Throwable t) {
 			throw new ResourceManagerException("Cannot initialize resource provider.", t);
 		}
@@ -113,7 +113,7 @@ public class NewActiveResourceManager<WorkerType extends ResourceIDRetrievable>
 	@Override
 	protected void terminate() throws ResourceManagerException {
 		try {
-			resourceProvider.terminate();
+			resourceManagerDriver.terminate();
 		} catch (Throwable t) {
 			throw new ResourceManagerException("Cannot terminate resource provider.", t);
 		}
@@ -123,7 +123,7 @@ public class NewActiveResourceManager<WorkerType extends ResourceIDRetrievable>
 	protected void internalDeregisterApplication(ApplicationStatus finalStatus, @Nullable String optionalDiagnostics)
 			throws ResourceManagerException {
 		try {
-			resourceProvider.deregisterApplication(finalStatus, optionalDiagnostics);
+			resourceManagerDriver.deregisterApplication(finalStatus, optionalDiagnostics);
 		} catch (Throwable t) {
 			throw new ResourceManagerException("Cannot deregister application.", t);
 		}
@@ -143,7 +143,7 @@ public class NewActiveResourceManager<WorkerType extends ResourceIDRetrievable>
 	@Override
 	public boolean stopWorker(WorkerType worker) {
 		final ResourceID resourceId = worker.getResourceID();
-		resourceProvider.releaseResource(worker);
+		resourceManagerDriver.releaseResource(worker);
 
 		log.info("Stopping worker {}.", resourceId);
 
@@ -196,8 +196,8 @@ public class NewActiveResourceManager<WorkerType extends ResourceIDRetrievable>
 	}
 
 	@Override
-	public void executeOnMainThread(Runnable command) {
-		runAsync(command);
+	public void handleInMainThread(Runnable runnable) {
+		runAsync(runnable);
 	}
 
 	// ------------------------------------------------------------------------
@@ -213,7 +213,7 @@ public class NewActiveResourceManager<WorkerType extends ResourceIDRetrievable>
 			workerResourceSpec,
 			pendingCount);
 
-		resourceProvider.requestResource(taskExecutorProcessSpec)
+		resourceManagerDriver.requestResource(taskExecutorProcessSpec)
 			.whenComplete((worker, exception) -> {
 				if (exception != null) {
 					final int count = pendingWorkerCounter.decreaseAndGet(workerResourceSpec);
