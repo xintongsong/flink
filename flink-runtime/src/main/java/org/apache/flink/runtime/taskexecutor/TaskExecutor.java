@@ -473,7 +473,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		// it will call close() recursively from the parent to children
 		taskManagerMetricGroup.close();
 
-		ExceptionUtils.tryRethrowException(exception);
+		ExceptionUtils.tryRethrowThrowable(exception);
 	}
 
 	// ======================================================================

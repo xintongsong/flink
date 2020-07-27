@@ -319,7 +319,7 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
 		}
 
 		env.getTaskStateManager().notifyCheckpointAborted(checkpointId);
-		ExceptionUtils.tryRethrowException(previousException);
+		ExceptionUtils.tryRethrowThrowable(previousException);
 	}
 
 	@Override

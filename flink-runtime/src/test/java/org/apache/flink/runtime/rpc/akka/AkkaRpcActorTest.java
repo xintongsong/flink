@@ -694,7 +694,7 @@ public class AkkaRpcActorTest extends TestLogger {
 		public void onStart() throws Exception {
 			countDownLatch.countDown();
 
-			ExceptionUtils.tryRethrowException(exception);
+			ExceptionUtils.tryRethrowThrowable(exception);
 		}
 
 		public void awaitUntilOnStartCalled() throws InterruptedException {

@@ -338,24 +338,13 @@ public final class ExceptionUtils {
 	}
 
 	/**
-	 * Tries to throw the given exception if not null.
-	 *
-	 * @param e exception to throw if not null.
-	 * @throws Exception
-	 */
-	public static void tryRethrowException(@Nullable Exception e) throws Exception {
-		if (e != null) {
-			throw e;
-		}
-	}
-
-	/**
 	 * Tries to throw the given throwable if not null.
 	 *
-	 * @param t throwable to throw if not null
-	 * @throws Throwable
+	 * @param t throwable to throw if not null.
+	 * @param <T> type of the throwable.
+	 * @throws T
 	 */
-	public static void tryRethrowThrowable(@Nullable Throwable t) throws Throwable {
+	public static <T extends Throwable> void tryRethrowThrowable(@Nullable T t) throws T {
 		if (t != null) {
 			throw t;
 		}

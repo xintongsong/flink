@@ -286,7 +286,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 		clearStateInternal();
 
-		ExceptionUtils.tryRethrowException(exception);
+		ExceptionUtils.tryRethrowThrowable(exception);
 	}
 
 	// ------------------------------------------------------------------------

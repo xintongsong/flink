@@ -263,7 +263,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 		jobManagerMetricGroup.close();
 
-		ExceptionUtils.tryRethrowException(exception);
+		ExceptionUtils.tryRethrowThrowable(exception);
 	}
 
 	//------------------------------------------------------
