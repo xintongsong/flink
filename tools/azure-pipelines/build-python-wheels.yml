@@ -44,6 +44,8 @@ jobs:
           artifactName: FlinkCompileCacheDir-${{parameters.stage_name}}
 
   - job: build_wheels
+    timeoutInMinutes: 240
+    cancelTimeoutInMinutes: 1
     dependsOn: compile_${{parameters.stage_name}}
     strategy:
       matrix:
@@ -53,9 +55,7 @@ jobs:
           vm-label: 'macOS-10.15'
     pool:
       vmImage: $(vm-label)
-    timeoutInMinutes: 240
-    cancelTimeoutInMinutes: 1
-	variables:
+    variables:
       VERSION: $[ dependencies.compile_${{parameters.stage_name}}.outputs['set_version.VERSION'] ]
     steps:
       # download artifacts
