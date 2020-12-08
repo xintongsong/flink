@@ -15,6 +15,8 @@
 
 jobs:
   - job: compile_${{parameters.stage_name}}
+    timeoutInMinutes: 240
+    cancelTimeoutInMinutes: 1
     pool:
       vmImage: 'ubuntu-16.04'
     container: flink-build-container
@@ -51,7 +53,9 @@ jobs:
           vm-label: 'macOS-10.15'
     pool:
       vmImage: $(vm-label)
-    variables:
+    timeoutInMinutes: 240
+    cancelTimeoutInMinutes: 1
+	variables:
       VERSION: $[ dependencies.compile_${{parameters.stage_name}}.outputs['set_version.VERSION'] ]
     steps:
       # download artifacts
