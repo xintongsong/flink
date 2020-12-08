@@ -15,6 +15,8 @@
 
 jobs:
   - job: compile_${{parameters.stage_name}}
+    timeoutInMinutes: 240
+    cancelTimeoutInMinutes: 1
     pool:
       vmImage: 'ubuntu-16.04'
     container: flink-build-container
@@ -42,6 +44,8 @@ jobs:
           artifactName: FlinkCompileCacheDir-${{parameters.stage_name}}
 
   - job: build_wheels
+    timeoutInMinutes: 240
+    cancelTimeoutInMinutes: 1
     dependsOn: compile_${{parameters.stage_name}}
     strategy:
       matrix:
