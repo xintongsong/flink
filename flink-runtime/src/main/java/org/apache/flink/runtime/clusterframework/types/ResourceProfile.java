@@ -254,6 +254,7 @@ public class ResourceProfile implements Serializable {
      */
     public boolean isMatching(final ResourceProfile required) {
         checkNotNull(required, "Cannot check matching with null resources");
+        throwUnsupportedOperationExecptionIfUnknown();
 
         if (this.equals(ANY)) {
             return true;
@@ -261,10 +262,6 @@ public class ResourceProfile implements Serializable {
 
         if (this.equals(required)) {
             return true;
-        }
-
-        if (this.equals(UNKNOWN)) {
-            return false;
         }
 
         if (required.equals(UNKNOWN)) {
@@ -289,10 +286,6 @@ public class ResourceProfile implements Serializable {
 
         if (this.equals(other)) {
             return true;
-        }
-
-        if (this.equals(UNKNOWN)) {
-            return false;
         }
 
         if (other.equals(UNKNOWN)) {
