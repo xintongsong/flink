@@ -50,7 +50,7 @@ public class ResourceProfileTest extends TestLogger {
             MAX_MEMORY_SIZE_TO_LOG.add(MemorySize.ofMebiBytes(10));
 
     @Test
-    public void testMatchRequirement() {
+    public void testBiggerThanProfile() {
         final ResourceProfile rp1 =
                 ResourceProfile.newBuilder()
                         .setCpuCores(1.0)
@@ -80,19 +80,19 @@ public class ResourceProfileTest extends TestLogger {
                         .setManagedMemoryMB(200)
                         .build();
 
-        assertFalse(rp1.isMatching(rp2));
-        assertTrue(rp2.isMatching(rp1));
+        assertFalse(rp1.isBiggerThan(rp2));
+        assertTrue(rp2.isBiggerThan(rp1));
 
-        assertFalse(rp1.isMatching(rp3));
-        assertTrue(rp3.isMatching(rp1));
+        assertFalse(rp1.isBiggerThan(rp3));
+        assertTrue(rp3.isBiggerThan(rp1));
 
-        assertFalse(rp2.isMatching(rp3));
-        assertFalse(rp3.isMatching(rp2));
+        assertFalse(rp2.isBiggerThan(rp3));
+        assertFalse(rp3.isBiggerThan(rp2));
 
-        assertTrue(rp4.isMatching(rp1));
-        assertTrue(rp4.isMatching(rp2));
-        assertTrue(rp4.isMatching(rp3));
-        assertTrue(rp4.isMatching(rp4));
+        assertTrue(rp4.isBiggerThan(rp1));
+        assertTrue(rp4.isBiggerThan(rp2));
+        assertTrue(rp4.isBiggerThan(rp3));
+        assertTrue(rp4.isBiggerThan(rp4));
 
         final ResourceProfile rp5 =
                 ResourceProfile.newBuilder()
@@ -102,23 +102,61 @@ public class ResourceProfileTest extends TestLogger {
                         .setManagedMemoryMB(100)
                         .setNetworkMemoryMB(100)
                         .build();
-        assertFalse(rp4.isMatching(rp5));
+        assertFalse(rp4.isBiggerThan(rp5));
 
         ResourceSpec rs1 = ResourceSpec.newBuilder(1.0, 100).setGPUResource(2.2).build();
         ResourceSpec rs2 = ResourceSpec.newBuilder(1.0, 100).setGPUResource(1.1).build();
 
-        assertFalse(rp1.isMatching(ResourceProfile.fromResourceSpec(rs1)));
+        assertFalse(rp1.isBiggerThan(ResourceProfile.fromResourceSpec(rs1)));
         assertTrue(
                 ResourceProfile.fromResourceSpec(rs1)
-                        .isMatching(ResourceProfile.fromResourceSpec(rs2)));
+                        .isBiggerThan(ResourceProfile.fromResourceSpec(rs2)));
         assertFalse(
                 ResourceProfile.fromResourceSpec(rs2)
-                        .isMatching(ResourceProfile.fromResourceSpec(rs1)));
+                        .isBiggerThan(ResourceProfile.fromResourceSpec(rs1)));
     }
 
     @Test
-    public void testUnknownMatchesUnknown() {
-        assertTrue(ResourceProfile.UNKNOWN.isMatching(ResourceProfile.UNKNOWN));
+    public void testMatchRequirement() {
+        final ResourceProfile resource1 =
+                ResourceProfile.newBuilder()
+                        .setCpuCores(1.0)
+                        .setTaskHeapMemoryMB(100)
+                        .setTaskOffHeapMemoryMB(100)
+                        .setManagedMemoryMB(100)
+                        .build();
+        final ResourceProfile resource2 =
+                ResourceProfile.newBuilder()
+                        .setCpuCores(1.0)
+                        .setTaskHeapMemoryMB(100)
+                        .setTaskOffHeapMemoryMB(100)
+                        .setManagedMemoryMB(100)
+                        .addExtendedResource("gpu", new GPUResource(1.0))
+                        .build();
+        final ResourceProfile requirement1 = ResourceProfile.UNKNOWN;
+        final ResourceProfile requirement2 =
+                ResourceProfile.newBuilder()
+                        .setCpuCores(1.0)
+                        .setTaskHeapMemoryMB(100)
+                        .setTaskOffHeapMemoryMB(100)
+                        .setManagedMemoryMB(100)
+                        .build();
+        final ResourceProfile requirement3 =
+                ResourceProfile.newBuilder()
+                        .setCpuCores(1.0)
+                        .setTaskHeapMemoryMB(100)
+                        .setTaskOffHeapMemoryMB(100)
+                        .setManagedMemoryMB(100)
+                        .addExtendedResource("gpu", new GPUResource(1.0))
+                        .build();
+
+        assertTrue(resource1.isMatching(requirement1));
+        assertTrue(resource1.isMatching(requirement2));
+        assertFalse(resource1.isMatching(requirement3));
+
+        assertTrue(resource2.isMatching(requirement1));
+        assertFalse(resource2.isMatching(requirement2));
+        assertTrue(resource2.isMatching(requirement3));
     }
 
     @Test

@@ -271,13 +271,41 @@ public class ResourceProfile implements Serializable {
             return true;
         }
 
-        if (cpuCores.getValue().compareTo(required.cpuCores.getValue()) >= 0
-                && taskHeapMemory.compareTo(required.taskHeapMemory) >= 0
-                && taskOffHeapMemory.compareTo(required.taskOffHeapMemory) >= 0
-                && managedMemory.compareTo(required.managedMemory) >= 0
-                && networkMemory.compareTo(required.networkMemory) >= 0) {
+        return false;
+    }
 
-            for (Map.Entry<String, Resource> resource : required.extendedResources.entrySet()) {
+    /**
+     * Check whether this resource profile is bigger than the given resource profile.
+     *
+     * @param other the other resource profile
+     * @return true if this resource profile is bigger, otherwise false
+     */
+    public boolean isBiggerThan(final ResourceProfile other) {
+        checkNotNull(other, "Cannot compare null resources");
+
+        if (this.equals(ANY)) {
+            return true;
+        }
+
+        if (this.equals(other)) {
+            return true;
+        }
+
+        if (this.equals(UNKNOWN)) {
+            return false;
+        }
+
+        if (other.equals(UNKNOWN)) {
+            return true;
+        }
+
+        if (cpuCores.getValue().compareTo(other.cpuCores.getValue()) >= 0
+                && taskHeapMemory.compareTo(other.taskHeapMemory) >= 0
+                && taskOffHeapMemory.compareTo(other.taskOffHeapMemory) >= 0
+                && managedMemory.compareTo(other.managedMemory) >= 0
+                && networkMemory.compareTo(other.networkMemory) >= 0) {
+
+            for (Map.Entry<String, Resource> resource : other.extendedResources.entrySet()) {
                 if (!extendedResources.containsKey(resource.getKey())
                         || extendedResources
                                         .get(resource.getKey())
@@ -376,7 +404,8 @@ public class ResourceProfile implements Serializable {
         }
 
         checkArgument(
-                isMatching(other), "Try to subtract an unmatched resource profile from this one.");
+                isBiggerThan(other),
+                "Try to subtract an unmatched resource profile from this one.");
 
         Map<String, Resource> resultExtendedResource = new HashMap<>(extendedResources);
 
