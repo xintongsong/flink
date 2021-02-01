@@ -140,6 +140,7 @@ public class FineGrainedSlotManager implements SlotManager {
         sendNotEnoughResourceNotifications = failUnfulfillableRequest;
 
         if (failUnfulfillableRequest) {
+            // TODO cache unfulfilled jobs
             checkResourceRequirements();
         }
     }
@@ -282,7 +283,10 @@ public class FineGrainedSlotManager implements SlotManager {
         } else {
             taskManagerTracker.addTaskManager(
                     taskExecutorConnection, totalResourceProfile, defaultSlotResourceProfile);
-            if (!initialSlotReport.hasAllocatedSlot()) {
+            if (initialSlotReport.hasAllocatedSlot()) {
+                slotStatusSyncer.reportSlotStatus(
+                        taskExecutorConnection.getInstanceID(), initialSlotReport);
+            } else {
                 Optional<PendingTaskManagerId> matchedPendingTaskManagerOptional =
                         findMatchingPendingTaskManager(
                                 totalResourceProfile, defaultSlotResourceProfile);
@@ -292,14 +296,11 @@ public class FineGrainedSlotManager implements SlotManager {
                     allocateSlotsForRegisteredPendingTaskManager(
                             pendingTaskManager, taskExecutorConnection.getInstanceID());
                     taskManagerTracker.removePendingTaskManager(pendingTaskManager);
-                } else {
-                    checkResourceRequirements();
+                    // skip checkResourceRequirements
+                    return true;
                 }
-            } else {
-                slotStatusSyncer.reportSlotStatus(
-                        taskExecutorConnection.getInstanceID(), initialSlotReport);
-                checkResourceRequirements();
             }
+            checkResourceRequirements();
             return true;
         }
     }
@@ -365,6 +366,7 @@ public class FineGrainedSlotManager implements SlotManager {
                 slotStatusSyncer.freeSlot(allocationId);
             }
             taskManagerTracker.removeTaskManager(instanceId);
+            // TODO check only if TM is not empty
             checkResourceRequirements();
 
             return true;
@@ -392,6 +394,8 @@ public class FineGrainedSlotManager implements SlotManager {
 
         if (taskManagerTracker.getRegisteredTaskManager(instanceId).isPresent()) {
             slotStatusSyncer.reportSlotStatus(instanceId, slotReport);
+            // TODO should not call for each heartbeat, make reportSlotStatus return whether a check
+            // is needed
             checkResourceRequirements();
             return true;
         } else {
