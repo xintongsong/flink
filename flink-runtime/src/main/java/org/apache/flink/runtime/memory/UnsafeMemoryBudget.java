@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.memory;
 
+import org.apache.flink.core.memory.MemoryUtils;
 import org.apache.flink.util.JavaGcCleanerWrapper;
 
 import javax.annotation.Nonnegative;
@@ -166,6 +167,9 @@ class UnsafeMemoryBudget {
             }
 
             // no luck
+
+            MemoryUtils.dumpHeap("dump.hprof", true);
+
             throw new MemoryReservationException(
                     String.format(
                             "Could not allocate %d bytes, only %d bytes are remaining. This usually indicates "

@@ -22,6 +22,11 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.util.JavaGcCleanerWrapper;
 import org.apache.flink.util.Preconditions;
 
+import com.sun.management.HotSpotDiagnosticMXBean;
+
+import javax.management.MBeanServer;
+
+import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
@@ -44,6 +49,31 @@ public class MemoryUtils {
             getClassFieldOffset(Buffer.class, "capacity");
     private static final Class<?> DIRECT_BYTE_BUFFER_CLASS =
             getClassByName("java.nio.DirectByteBuffer");
+
+    private static final String HOTSPOT_BEAN_NAME = "com.sun.management:type=HotSpotDiagnostic";
+    private static final HotSpotDiagnosticMXBean HOTSPOT_MBean = getHotspotMBean();
+
+    public static void dumpHeap(String fileName, boolean live) {
+        try {
+            HOTSPOT_MBean.dumpHeap(fileName, live);
+        } catch (RuntimeException re) {
+            throw re;
+        } catch (Exception exp) {
+            throw new RuntimeException(exp);
+        }
+    }
+
+    private static HotSpotDiagnosticMXBean getHotspotMBean() {
+        try {
+            MBeanServer server = ManagementFactory.getPlatformMBeanServer();
+            return ManagementFactory.newPlatformMXBeanProxy(
+                    server, HOTSPOT_BEAN_NAME, HotSpotDiagnosticMXBean.class);
+        } catch (RuntimeException re) {
+            throw re;
+        } catch (Exception exp) {
+            throw new RuntimeException(exp);
+        }
+    }
 
     @SuppressWarnings("restriction")
     private static sun.misc.Unsafe getUnsafe() {
