@@ -59,6 +59,8 @@ public final class HybridMemorySegment extends MemorySegment {
      */
     @Nullable private ByteBuffer offHeapBuffer;
 
+    @Nullable private final Runnable cleaner;
+
     private final boolean allowWrap;
 
     /**
@@ -74,7 +76,7 @@ public final class HybridMemorySegment extends MemorySegment {
      * @throws IllegalArgumentException Thrown, if the given ByteBuffer is not direct.
      */
     HybridMemorySegment(@Nonnull ByteBuffer buffer, @Nullable Object owner) {
-        this(buffer, owner, true);
+        this(buffer, owner, true, null);
     }
 
     /**
@@ -88,12 +90,18 @@ public final class HybridMemorySegment extends MemorySegment {
      * @param buffer The byte buffer whose memory is represented by this memory segment.
      * @param owner The owner references by this memory segment.
      * @param allowWrap Whether wrapping {@link ByteBuffer}s from the segment is allowed.
+     * @param cleaner The cleaner to be called on free segment.
      * @throws IllegalArgumentException Thrown, if the given ByteBuffer is not direct.
      */
-    HybridMemorySegment(@Nonnull ByteBuffer buffer, @Nullable Object owner, boolean allowWrap) {
+    HybridMemorySegment(
+            @Nonnull ByteBuffer buffer,
+            @Nullable Object owner,
+            boolean allowWrap,
+            @Nullable Runnable cleaner) {
         super(getByteBufferAddress(buffer), buffer.capacity(), owner);
         this.offHeapBuffer = buffer;
         this.allowWrap = allowWrap;
+        this.cleaner = cleaner;
     }
 
     /**
@@ -108,6 +116,7 @@ public final class HybridMemorySegment extends MemorySegment {
         super(buffer, owner);
         this.offHeapBuffer = null;
         this.allowWrap = true;
+        this.cleaner = null;
     }
 
     // -------------------------------------------------------------------------
@@ -117,6 +126,9 @@ public final class HybridMemorySegment extends MemorySegment {
     @Override
     public void free() {
         super.free();
+        if (cleaner != null) {
+            cleaner.run();
+        }
         offHeapBuffer = null; // to enable GC of unsafe memory
     }
 
