@@ -37,7 +37,7 @@ public class HybridOffHeapUnsafeMemorySegmentTest extends MemorySegmentTestBase 
 
     @Override
     MemorySegment createSegment(int size, Object owner) {
-        return MemorySegmentFactory.allocateOffHeapUnsafeMemory(size, owner, () -> {});
+        return MemorySegmentFactory.allocateOffHeapUnsafeMemory(size, owner, () -> {}, true);
     }
 
     @Override

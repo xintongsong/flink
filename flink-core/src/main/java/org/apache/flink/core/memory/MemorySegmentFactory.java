@@ -135,7 +135,7 @@ public final class MemorySegmentFactory {
 
     @VisibleForTesting
     public static MemorySegment allocateOffHeapUnsafeMemory(int size) {
-        return allocateOffHeapUnsafeMemory(size, null, NO_OP);
+        return allocateOffHeapUnsafeMemory(size, null, NO_OP, true);
     }
 
     private static ByteBuffer allocateDirectMemory(int size) {
@@ -169,15 +169,18 @@ public final class MemorySegmentFactory {
      * @param size The size of the off-heap unsafe memory segment to allocate.
      * @param owner The owner to associate with the off-heap unsafe memory segment.
      * @param customCleanupAction A custom action to run upon calling GC cleaner.
+     * @param freeUnsafeInstantly Whether to free unsafe memory instantly.
      * @return A new memory segment, backed by off-heap unsafe memory.
      */
     public static MemorySegment allocateOffHeapUnsafeMemory(
-            int size, Object owner, Runnable customCleanupAction) {
+            int size, Object owner, Runnable customCleanupAction, boolean freeUnsafeInstantly) {
         long address = MemoryUtils.allocateUnsafe(size);
         ByteBuffer offHeapBuffer = MemoryUtils.wrapUnsafeMemoryWithByteBuffer(address, size);
         Runnable cleaner =
                 MemoryUtils.createMemoryGcCleaner(offHeapBuffer, address, customCleanupAction);
-        return new HybridMemorySegment(offHeapBuffer, owner, false, cleaner);
+        return freeUnsafeInstantly
+                ? new HybridMemorySegment(offHeapBuffer, owner, false, cleaner)
+                : new HybridMemorySegment(offHeapBuffer, owner, true, null);
     }
 
     /**

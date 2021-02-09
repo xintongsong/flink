@@ -26,6 +26,7 @@ public class MemoryManagerBuilder {
 
     private long memorySize = DEFAULT_MEMORY_SIZE;
     private int pageSize = DEFAULT_PAGE_SIZE;
+    private boolean freeUnsafeInstantly = false;
 
     private MemoryManagerBuilder() {}
 
@@ -39,9 +40,17 @@ public class MemoryManagerBuilder {
         return this;
     }
 
+    public MemoryManagerBuilder setFreeUnsafeInstantly(boolean freeUnsafeInstantly) {
+        this.freeUnsafeInstantly = freeUnsafeInstantly;
+        return this;
+    }
+
     public MemoryManager build() {
         return new MemoryManager(
-                memorySize, pageSize, UnsafeMemoryBudgetTest.MAX_SLEEPS_VERIFY_EMPTY_FOR_TESTS);
+                memorySize,
+                pageSize,
+                UnsafeMemoryBudgetTest.MAX_SLEEPS_VERIFY_EMPTY_FOR_TESTS,
+                freeUnsafeInstantly);
     }
 
     public static MemoryManagerBuilder newBuilder() {

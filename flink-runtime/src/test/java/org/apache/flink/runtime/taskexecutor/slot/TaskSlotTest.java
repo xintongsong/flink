@@ -64,6 +64,7 @@ public class TaskSlotTest extends TestLogger {
                 MemoryManager.MIN_PAGE_SIZE,
                 JOB_ID,
                 ALLOCATION_ID,
-                Executors.newDirectExecutorService());
+                Executors.newDirectExecutorService(),
+                true);
     }
 }

@@ -83,6 +83,8 @@ public class MemoryManager {
 
     private final SharedResources sharedResources;
 
+    private final boolean freeUnsafeInstantly;
+
     /** Flag whether the close() has already been invoked. */
     private volatile boolean isShutDown;
 
@@ -93,8 +95,13 @@ public class MemoryManager {
      * @param pageSize The size of the pages handed out by the memory manager.
      * @param verifyEmptyWaitGcMaxSleeps defines how long to wait for GC of all allocated memory to
      *     check for memory leaks, see {@link UnsafeMemoryBudget} for details.
+     * @param freeUnsafeInstantly Whether to free unsafe memory instantly.
      */
-    MemoryManager(long memorySize, int pageSize, int verifyEmptyWaitGcMaxSleeps) {
+    MemoryManager(
+            long memorySize,
+            int pageSize,
+            int verifyEmptyWaitGcMaxSleeps,
+            boolean freeUnsafeInstantly) {
         sanityCheck(memorySize, pageSize);
 
         this.pageSize = pageSize;
@@ -103,6 +110,7 @@ public class MemoryManager {
         this.allocatedSegments = new ConcurrentHashMap<>();
         this.reservedMemory = new ConcurrentHashMap<>();
         this.sharedResources = new SharedResources();
+        this.freeUnsafeInstantly = freeUnsafeInstantly;
         verifyIntTotalNumberOfPages(memorySize, totalNumberOfPages);
 
         LOG.debug(
@@ -245,7 +253,8 @@ public class MemoryManager {
                                     : currentSegmentsForOwner;
                     for (long i = numberOfPages; i > 0; i--) {
                         MemorySegment segment =
-                                allocateOffHeapUnsafeMemory(getPageSize(), owner, pageCleanup);
+                                allocateOffHeapUnsafeMemory(
+                                        getPageSize(), owner, pageCleanup, freeUnsafeInstantly);
                         target.add(segment);
                         segmentsForOwner.add(segment);
                     }
@@ -664,9 +673,14 @@ public class MemoryManager {
      *
      * @param memorySize The total size of the off-heap memory to be managed by this memory manager.
      * @param pageSize The size of the pages handed out by the memory manager.
+     * @param freeUnsafeInstantly Whether to free unsafe memory instantly.
      */
-    public static MemoryManager create(long memorySize, int pageSize) {
-        return new MemoryManager(memorySize, pageSize, UnsafeMemoryBudget.MAX_SLEEPS_VERIFY_EMPTY);
+    public static MemoryManager create(long memorySize, int pageSize, boolean freeUnsafeInstantly) {
+        return new MemoryManager(
+                memorySize,
+                pageSize,
+                UnsafeMemoryBudget.MAX_SLEEPS_VERIFY_EMPTY,
+                freeUnsafeInstantly);
     }
 
     private static void validateFraction(double fraction) {

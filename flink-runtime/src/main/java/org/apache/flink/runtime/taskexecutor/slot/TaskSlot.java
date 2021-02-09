@@ -96,7 +96,8 @@ public class TaskSlot<T extends TaskSlotPayload> implements AutoCloseableAsync {
             final int memoryPageSize,
             final JobID jobId,
             final AllocationID allocationId,
-            final Executor asyncExecutor) {
+            final Executor asyncExecutor,
+            final boolean freeUnsafeInstantly) {
 
         this.index = index;
         this.resourceProfile = Preconditions.checkNotNull(resourceProfile);
@@ -108,7 +109,8 @@ public class TaskSlot<T extends TaskSlotPayload> implements AutoCloseableAsync {
         this.jobId = jobId;
         this.allocationId = allocationId;
 
-        this.memoryManager = createMemoryManager(resourceProfile, memoryPageSize);
+        this.memoryManager =
+                createMemoryManager(resourceProfile, memoryPageSize, freeUnsafeInstantly);
 
         this.closingFuture = new CompletableFuture<>();
     }
@@ -345,7 +347,8 @@ public class TaskSlot<T extends TaskSlotPayload> implements AutoCloseableAsync {
     }
 
     private static MemoryManager createMemoryManager(
-            ResourceProfile resourceProfile, int pageSize) {
-        return MemoryManager.create(resourceProfile.getManagedMemory().getBytes(), pageSize);
+            ResourceProfile resourceProfile, int pageSize, boolean freeUnsafeInstantly) {
+        return MemoryManager.create(
+                resourceProfile.getManagedMemory().getBytes(), pageSize, freeUnsafeInstantly);
     }
 }

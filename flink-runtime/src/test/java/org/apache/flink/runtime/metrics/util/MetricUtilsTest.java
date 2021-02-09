@@ -202,7 +202,7 @@ public class MetricUtilsTest extends TestLogger {
         final int pageSize = 4096;
         final Object owner = new Object();
 
-        final MemoryManager memoryManager = MemoryManager.create(maxMemorySize, pageSize);
+        final MemoryManager memoryManager = MemoryManager.create(maxMemorySize, pageSize, true);
         memoryManager.allocatePages(owner, numberOfAllocatedPages);
         final TaskManagerServices taskManagerServices =
                 new TaskManagerServicesBuilder()

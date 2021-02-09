@@ -20,6 +20,7 @@ package org.apache.flink.runtime.taskexecutor;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.blob.PermanentBlobService;
 import org.apache.flink.runtime.broadcast.BroadcastVariableManager;
@@ -299,7 +300,11 @@ public class TaskManagerServices {
                         taskManagerServicesConfiguration.getTaskExecutorResourceSpec(),
                         taskManagerServicesConfiguration.getTimerServiceShutdownTimeout(),
                         taskManagerServicesConfiguration.getPageSize(),
-                        ioExecutor);
+                        ioExecutor,
+                        taskManagerServicesConfiguration
+                                .getConfiguration()
+                                .getBoolean(
+                                        TaskManagerOptions.MANAGED_MEMORY_FREE_UNSAFE_INSTANTLY));
 
         final JobTable jobTable = DefaultJobTable.create();
 
@@ -363,7 +368,8 @@ public class TaskManagerServices {
             final TaskExecutorResourceSpec taskExecutorResourceSpec,
             final long timerServiceShutdownTimeout,
             final int pageSize,
-            final Executor memoryVerificationExecutor) {
+            final Executor memoryVerificationExecutor,
+            final boolean freeUnsafeInstantly) {
         final TimerService<AllocationID> timerService =
                 new TimerService<>(new ScheduledThreadPoolExecutor(1), timerServiceShutdownTimeout);
         return new TaskSlotTableImpl<>(
@@ -374,7 +380,8 @@ public class TaskManagerServices {
                         taskExecutorResourceSpec, numberOfSlots),
                 pageSize,
                 timerService,
-                memoryVerificationExecutor);
+                memoryVerificationExecutor,
+                freeUnsafeInstantly);
     }
 
     private static ShuffleEnvironment<?, ?> createShuffleEnvironment(

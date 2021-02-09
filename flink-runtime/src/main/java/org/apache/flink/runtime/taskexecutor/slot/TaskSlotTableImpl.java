@@ -112,13 +112,16 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
     /** {@link Executor} for background actions, e.g. verify all managed memory released. */
     private final Executor memoryVerificationExecutor;
 
+    private final boolean freeUnsafeInstantly;
+
     public TaskSlotTableImpl(
             final int numberSlots,
             final ResourceProfile totalAvailableResourceProfile,
             final ResourceProfile defaultSlotResourceProfile,
             final int memoryPageSize,
             final TimerService<AllocationID> timerService,
-            final Executor memoryVerificationExecutor) {
+            final Executor memoryVerificationExecutor,
+            final boolean freeUnsafeInstantly) {
         Preconditions.checkArgument(
                 0 < numberSlots, "The number of task slots must be greater than 0.");
 
@@ -146,6 +149,8 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
         closingFuture = new CompletableFuture<>();
 
         this.memoryVerificationExecutor = memoryVerificationExecutor;
+
+        this.freeUnsafeInstantly = freeUnsafeInstantly;
     }
 
     @Override
@@ -325,7 +330,8 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
                         memoryPageSize,
                         jobId,
                         allocationId,
-                        memoryVerificationExecutor);
+                        memoryVerificationExecutor,
+                        freeUnsafeInstantly);
         taskSlots.put(index, taskSlot);
 
         // update the allocation id to task slot map

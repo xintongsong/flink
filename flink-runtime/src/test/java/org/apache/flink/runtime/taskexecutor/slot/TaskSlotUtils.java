@@ -60,7 +60,8 @@ public enum TaskSlotUtils {
                 DEFAULT_RESOURCE_PROFILE,
                 MemoryManager.MIN_PAGE_SIZE,
                 timerService,
-                Executors.newDirectExecutorService());
+                Executors.newDirectExecutorService(),
+                true);
     }
 
     public static ResourceProfile createTotalResourceProfile(int numberOfSlots) {

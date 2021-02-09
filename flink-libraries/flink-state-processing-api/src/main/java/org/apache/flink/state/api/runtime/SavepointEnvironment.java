@@ -117,7 +117,7 @@ public class SavepointEnvironment implements Environment {
         this.registry = new KvStateRegistry().createTaskRegistry(jobID, vertexID);
         this.taskStateManager = new SavepointTaskStateManager(prioritizedOperatorSubtaskState);
         this.ioManager = new IOManagerAsync(ConfigurationUtils.parseTempDirectories(configuration));
-        this.memoryManager = MemoryManager.create(64 * 1024 * 1024, DEFAULT_PAGE_SIZE);
+        this.memoryManager = MemoryManager.create(64 * 1024 * 1024, DEFAULT_PAGE_SIZE, true);
         this.accumulatorRegistry = new AccumulatorRegistry(jobID, attemptID);
 
         this.userCodeClassLoader = UserCodeClassLoaderRuntimeContextAdapter.from(ctx);

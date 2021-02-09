@@ -2370,7 +2370,8 @@ public class TaskExecutorTest extends TestLogger {
                     DEFAULT_RESOURCE_PROFILE,
                     MemoryManager.MIN_PAGE_SIZE,
                     createDefaultTimerService(timeout.toMilliseconds()),
-                    Executors.newDirectExecutorService());
+                    Executors.newDirectExecutorService(),
+                    true);
             this.allocateSlotLatch = allocateSlotLatch;
         }
 
@@ -2410,7 +2411,8 @@ public class TaskExecutorTest extends TestLogger {
                     DEFAULT_RESOURCE_PROFILE,
                     MemoryManager.MIN_PAGE_SIZE,
                     createDefaultTimerService(timeout.toMilliseconds()),
-                    Executors.newDirectExecutorService());
+                    Executors.newDirectExecutorService(),
+                    true);
             this.slotsToActivate = slotsToActivate;
         }
 

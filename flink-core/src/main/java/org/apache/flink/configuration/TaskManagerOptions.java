@@ -458,6 +458,21 @@ public class TaskManagerOptions {
                                     + MANAGED_MEMORY_CONSUMER_NAME_PYTHON
                                     + " (for Python processes).");
 
+    /** Whether to free unsafe memory instantly. */
+    @Documentation.ExcludeFromDocumentation
+    public static final ConfigOption<Boolean> MANAGED_MEMORY_FREE_UNSAFE_INSTANTLY =
+            key("taskmanager.memory.managed.free-unsafe-instantly")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDeprecatedKeys(
+                            "This is by default true, which means 1) underlying unsafe memory will"
+                                    + " be freed as soon as the wrapping segment is freed without"
+                                    + " waiting for GC, and 2) wrapping buffers from unsafe"
+                                    + " segments is not allowed. This is hidden from the users,"
+                                    + " serving as a fallback option in case any existing misusing"
+                                    + " of unsafe segments escape our tests, and should be removed"
+                                    + " once we are confidence no such cases exist.");
+
     /** Min Network Memory size for TaskExecutors. */
     @Documentation.Section(Documentation.Sections.COMMON_MEMORY)
     public static final ConfigOption<MemorySize> NETWORK_MEMORY_MIN =
