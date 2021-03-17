@@ -19,12 +19,15 @@
 package org.apache.flink.runtime.memory;
 
 import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.core.testutils.CommonTestUtils;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.operators.testutils.DummyInvokable;
 
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -32,6 +35,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import static org.junit.Assert.assertEquals;
@@ -51,6 +55,22 @@ public class MemoryManagerTest {
     private MemoryManager memoryManager;
 
     private Random random;
+
+    private static Map<String, String> systemEnv;
+
+    @BeforeClass
+    public static void setupClass() {
+        systemEnv = System.getenv();
+        CommonTestUtils.setEnv(
+                Collections.singletonMap(MemorySegment.CHECK_MULTIPLE_FREE_PROPERTY, ""), false);
+    }
+
+    @AfterClass
+    public static void teardownClass() {
+        if (systemEnv != null) {
+            CommonTestUtils.setEnv(systemEnv, true);
+        }
+    }
 
     @Before
     public void setUp() {
