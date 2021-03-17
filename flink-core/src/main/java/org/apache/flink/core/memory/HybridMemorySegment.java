@@ -131,9 +131,6 @@ public final class HybridMemorySegment extends MemorySegment {
 
     @Override
     public void free() {
-        if (isFreed()) {
-            throw new IllegalStateException("HybridMemorySegment can be freed only once!");
-        }
         super.free();
         if (cleaner != null) {
             cleaner.run();
