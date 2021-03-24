@@ -26,12 +26,12 @@ import java.nio.ByteBuffer;
 public class MemorySegmentChecksTest {
 
     @Test(expected = NullPointerException.class)
-    public void testHeapNullBuffer2() {
+    public void testHeapNullBuffer() {
         new MemorySegment((byte[]) null, new Object());
     }
 
     @Test(expected = NullPointerException.class)
-    public void testOffHeapNullBuffer2() {
+    public void testOffHeapNullBuffer() {
         new MemorySegment((ByteBuffer) null, new Object());
     }
 
