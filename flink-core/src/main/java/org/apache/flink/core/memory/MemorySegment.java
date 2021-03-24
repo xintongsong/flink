@@ -38,6 +38,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static org.apache.flink.core.memory.MemoryUtils.getByteBufferAddress;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * This class represents a piece of memory managed by Flink.
@@ -205,6 +206,17 @@ public final class MemorySegment {
         this.allowWrap = allowWrap;
         this.cleaner = cleaner;
         this.isFreedAtomic = new AtomicBoolean(false);
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+        super.finalize();
+        try {
+            checkState(isFreedAtomic.get());
+        } catch (Throwable t) {
+            System.err.println("Segment not freed");
+            System.exit(-18);
+        }
     }
 
     // ------------------------------------------------------------------------
