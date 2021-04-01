@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.util.UUID;
 import java.util.concurrent.Executor;
 
 /**
@@ -90,7 +91,8 @@ public abstract class ResourceManagerFactory<T extends ResourceIDRetrievable> {
     }
 
     public ResourceManager<T> createResourceManager(
-            ResourceManagerProcessContext context, ResourceID resourceId) throws Exception {
+            ResourceManagerProcessContext context, UUID leaderSessionId, ResourceID resourceId)
+            throws Exception {
 
         final ResourceManagerRuntimeServices resourceManagerRuntimeServices =
                 createResourceManagerRuntimeServices(
@@ -103,7 +105,7 @@ public abstract class ResourceManagerFactory<T extends ResourceIDRetrievable> {
                 context.getRmConfig(),
                 resourceId,
                 context.getRpcService(),
-                context.getHighAvailabilityServices(),
+                leaderSessionId,
                 context.getHeartbeatServices(),
                 context.getFatalErrorHandler(),
                 context.getClusterInformation(),
@@ -136,7 +138,7 @@ public abstract class ResourceManagerFactory<T extends ResourceIDRetrievable> {
             Configuration configuration,
             ResourceID resourceId,
             RpcService rpcService,
-            HighAvailabilityServices highAvailabilityServices,
+            UUID leaderSessionId,
             HeartbeatServices heartbeatServices,
             FatalErrorHandler fatalErrorHandler,
             ClusterInformation clusterInformation,
