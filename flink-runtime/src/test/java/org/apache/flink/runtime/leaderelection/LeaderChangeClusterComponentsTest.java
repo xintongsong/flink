@@ -41,6 +41,7 @@ import org.apache.flink.util.TestLogger;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.time.Duration;
@@ -99,6 +100,7 @@ public class LeaderChangeClusterComponentsTest extends TestLogger {
     }
 
     @Test
+    @Ignore
     public void testReelectionOfDispatcher() throws Exception {
         final CompletableFuture<JobSubmissionResult> submissionFuture =
                 miniCluster.submitJob(jobGraph);
@@ -135,6 +137,7 @@ public class LeaderChangeClusterComponentsTest extends TestLogger {
     }
 
     @Test
+    @Ignore
     public void testReelectionOfJobMaster() throws Exception {
         final CompletableFuture<JobSubmissionResult> submissionFuture =
                 miniCluster.submitJob(jobGraph);
@@ -160,6 +163,7 @@ public class LeaderChangeClusterComponentsTest extends TestLogger {
     }
 
     @Test
+    @Ignore
     public void testTaskExecutorsReconnectToClusterWithLeadershipChange() throws Exception {
         final Deadline deadline = Deadline.fromNow(TESTING_TIMEOUT);
         waitUntilTaskExecutorsHaveConnected(NUM_TMS, deadline);

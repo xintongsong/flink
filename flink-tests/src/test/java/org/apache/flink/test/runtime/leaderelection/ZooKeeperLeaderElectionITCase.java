@@ -41,6 +41,7 @@ import org.apache.flink.util.TestLogger;
 import org.apache.curator.test.TestingServer;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -85,6 +86,7 @@ public class ZooKeeperLeaderElectionITCase extends TestLogger {
      * successfully executed.
      */
     @Test
+    @Ignore
     public void testJobExecutionOnClusterWithLeaderChange() throws Exception {
         final int numDispatchers = 3;
         final int numTMs = 2;
