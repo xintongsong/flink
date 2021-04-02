@@ -198,15 +198,16 @@ public class MesosResourceManagerDriver
             throw new ResourceManagerException(
                     "Unable to configure the artifact server with TaskManager artifacts.", e);
         }
+
+        onGrantLeadership().get();
     }
 
     @Override
-    public CompletableFuture<Void> terminate() {
-        return stopSupportingActorsAsync();
+    public void terminate() throws Exception {
+        onRevokeLeadership().get();
     }
 
-    @Override
-    public CompletableFuture<Void> onGrantLeadership() {
+    private CompletableFuture<Void> onGrantLeadership() {
         Preconditions.checkState(initializedMesosConfig != null);
 
         schedulerDriver =
@@ -238,8 +239,7 @@ public class MesosResourceManagerDriver
                         getMainThreadExecutor());
     }
 
-    @Override
-    public CompletableFuture<Void> onRevokeLeadership() {
+    private CompletableFuture<Void> onRevokeLeadership() {
         schedulerDriver.stop(true);
 
         workersInNew.clear();
