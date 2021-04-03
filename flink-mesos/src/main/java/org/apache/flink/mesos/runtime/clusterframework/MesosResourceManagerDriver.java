@@ -199,7 +199,7 @@ public class MesosResourceManagerDriver
                     "Unable to configure the artifact server with TaskManager artifacts.", e);
         }
 
-        onGrantLeadership().get();
+        onGrantLeadership();
     }
 
     @Override
