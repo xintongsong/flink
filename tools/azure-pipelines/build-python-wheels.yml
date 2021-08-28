@@ -15,6 +15,8 @@
 
 jobs:
   - job: build_wheels
+    timeoutInMinutes: 240
+    cancelTimeoutInMinutes: 1
     strategy:
       matrix:
         linux:
