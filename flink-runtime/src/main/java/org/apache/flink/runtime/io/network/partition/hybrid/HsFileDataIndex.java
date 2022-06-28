@@ -63,7 +63,8 @@ public interface HsFileDataIndex {
     void markBufferReadable(int subpartitionId, int bufferIndex);
 
     /**
-     * Represents a series of sequential, readable buffers from the same subpartition.
+     * Represents a series of physically continuous buffers in the file, which are readable, from
+     * the same subpartition, and has sequential buffer index.
      *
      * <p>For efficiency, the index may not remember offsets of all buffers. Thus, a region is
      * described as: starting from the {@link #offset}, skip the first {@link #numSkip} buffers and

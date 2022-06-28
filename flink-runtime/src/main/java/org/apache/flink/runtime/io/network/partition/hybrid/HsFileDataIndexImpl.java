@@ -39,14 +39,14 @@ public class HsFileDataIndexImpl implements HsFileDataIndex {
 
     @GuardedBy("lock")
     private final List<TreeMap<Integer, InternalRegion>>
-            subpartition_firstBufferIndex_internalRegions;
+            subpartitionFirstBufferIndexInternalRegions;
 
     private final Object lock = new Object();
 
     public HsFileDataIndexImpl(int numSubpartitions) {
-        this.subpartition_firstBufferIndex_internalRegions = new ArrayList<>(numSubpartitions);
+        this.subpartitionFirstBufferIndexInternalRegions = new ArrayList<>(numSubpartitions);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
-            subpartition_firstBufferIndex_internalRegions.add(new TreeMap<>());
+            subpartitionFirstBufferIndexInternalRegions.add(new TreeMap<>());
         }
     }
 
@@ -61,13 +61,13 @@ public class HsFileDataIndexImpl implements HsFileDataIndex {
 
     @Override
     public void addBuffers(List<SpilledBuffer> spilledBuffers) {
-        final Map<Integer, List<InternalRegion>> subpartition_internalRegions =
+        final Map<Integer, List<InternalRegion>> subpartitionInternalRegions =
                 convertToInternalRegions(spilledBuffers);
         synchronized (lock) {
-            subpartition_internalRegions.forEach(
+            subpartitionInternalRegions.forEach(
                     (subpartition, internalRegions) -> {
                         TreeMap<Integer, InternalRegion> treeMap =
-                                subpartition_firstBufferIndex_internalRegions.get(subpartition);
+                                subpartitionFirstBufferIndexInternalRegions.get(subpartition);
                         for (InternalRegion internalRegion : internalRegions) {
                             treeMap.put(internalRegion.firstBufferIndex, internalRegion);
                         }
@@ -86,7 +86,7 @@ public class HsFileDataIndexImpl implements HsFileDataIndex {
     @GuardedBy("lock")
     private Optional<InternalRegion> getInternalRegion(int subpartitionId, int bufferIndex) {
         return Optional.ofNullable(
-                        subpartition_firstBufferIndex_internalRegions
+                        subpartitionFirstBufferIndexInternalRegions
                                 .get(subpartitionId)
                                 .floorEntry(bufferIndex))
                 .map(Map.Entry::getValue)
@@ -150,60 +150,27 @@ public class HsFileDataIndexImpl implements HsFileDataIndex {
     }
 
     /**
-     * In hybrid shuffle mode, buffer may be persisted into a file, and all subpartition's buffer
-     * share the same file. Depending on the spilling strategy, the file may not contain all the
-     * buffers of a subpartition.Each buffer is uniquely identified by its subpartition id and index
-     * within the subpartition.
+     * A {@link InternalRegion} represents a series of physically continuous buffers in the file,
+     * which are from the same subpartition, and has sequential buffer index.
      *
-     * <p>Logically: Each subpartition has its own buffers with increasing buffer index
-     * independently.
+     * <p>The following example illustrates some physically continuous buffers in a file and regions
+     * upon them, where `x-y` denotes buffer from subpartition x with buffer index y, and `()`
+     * denotes a region.
      *
-     * <p>Physically, buffers can be stored in any order. That means, 1) order of buffers from the
-     * same subpartition may not be preserved, and 2) buffers from different subpartitions are mixed
-     * together.
+     * <p>(1-1, 1-2), (2-1), (2-2, 2-3), (1-5, 1-6), (1-4)
      *
-     * <p>For example:
+     * <p>Note: The file may not contain all the buffers. E.g., 1-3 is missing in the above example.
      *
-     * <p>Logically:
+     * <p>Note: Buffers in file may have different orders than their buffer index. E.g., 1-4 comes
+     * after 1-6 in the above example.
      *
-     * <p>Note that 2-3 indicates the buffer with index 3 in subpartition 2.
-     *
-     * <ul>
-     *   <li>Subpartition1 : 1-1, 1-2, 1-4, 1-5
-     *   <li>Subpartition2 : 2-3, 2-4, 2-6, 2-7
-     *   <li>Subpartition3 : 3-2, 3-3, 3-4, 3-5
-     * </ul>
-     *
-     * <p>Physically:
-     *
-     * <p>(1-1), (1-2), (2-3), (3-2), (3-3), (1-4), (1-5), (2-4), (2-6), (2-7), (3-4), (3-5)
-     *
-     * <p>To better index data on disks, {@link InternalRegion} is introduced, which is a logical
-     * concept that represents a collection of buffers belong to the same subpartition on the disk.
-     * Each subpartition will form multiple splits according to the continuity of the buffer index.
-     *
-     * <p>For the example above, the following splits would be formed. Note that each of the
-     * brackets indicates that these buffers belong to a single split.
-     *
-     * <p>(1-1, 1-2), (2-3), (3-2, 3-3), (1-4, 1-5), (2-4), (2-6, 2-7), (3-4, 3-5)
-     *
-     * <p>One point to note: Continuous buffers belonging to the same subpartition on disk may also
-     * belong to different splits.
+     * <p>Note: This index may not always maintain the longest possible regions. E.g., 2-1, 2-2, 2-3
+     * are in two separate regions.
      */
     private static class InternalRegion {
-        /** The index of the split's first buffer. */
         private final int firstBufferIndex;
-
-        /** The offset in the shuffle file of the split's first buffer. */
         private final long firstBufferOffset;
-
-        /** The number of buffers in this split. */
         private final int numBuffers;
-
-        /**
-         * To mark whether each buffer is released, the subscript of the array represents the
-         * relative index of the corresponding buffer to the first buffer index.
-         */
         private final boolean[] readable;
 
         private InternalRegion(int firstBufferIndex, long firstBufferOffset, int numBuffers) {

@@ -38,9 +38,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** Tests for {@link HsFileDataIndexImpl}. */
 @ExtendWith(TestLoggerExtension.class)
 class HsFileDataIndexImplTest {
-    private final int numSubpartitions = 3;
+    private static final int NUM_SUBPARTITIONS = 3;
 
-    private final int bufferWithHeadSize = 16;
+    private static final int BUFFER_WITH_HEAD_SIZE = 16;
 
     private HsFileDataIndexImpl hsDataIndex;
 
@@ -48,7 +48,7 @@ class HsFileDataIndexImplTest {
 
     @BeforeEach
     void before() {
-        hsDataIndex = new HsFileDataIndexImpl(numSubpartitions);
+        hsDataIndex = new HsFileDataIndexImpl(NUM_SUBPARTITIONS);
         currentOffset = 0L;
     }
 
@@ -190,7 +190,7 @@ class HsFileDataIndexImplTest {
                         (region) -> {
                             assertThat(region.numSkip).isEqualTo(0);
                             assertThat(region.numReadable).isEqualTo(1);
-                            assertThat(region.offset).isEqualTo(bufferWithHeadSize);
+                            assertThat(region.offset).isEqualTo(BUFFER_WITH_HEAD_SIZE);
                         });
         // expected region: (1-1, 1-2).
         assertThat(hsDataIndex.getReadableRegion(1, 1))
@@ -199,7 +199,7 @@ class HsFileDataIndexImplTest {
                         (region) -> {
                             assertThat(region.numSkip).isEqualTo(0);
                             assertThat(region.numReadable).isEqualTo(2);
-                            assertThat(region.offset).isEqualTo(bufferWithHeadSize * 2);
+                            assertThat(region.offset).isEqualTo(BUFFER_WITH_HEAD_SIZE * 2);
                         });
         // expected region: (1-4, 1-5).
         assertThat(hsDataIndex.getReadableRegion(1, 4))
@@ -208,7 +208,7 @@ class HsFileDataIndexImplTest {
                         (region) -> {
                             assertThat(region.numSkip).isEqualTo(0);
                             assertThat(region.numReadable).isEqualTo(2);
-                            assertThat(region.offset).isEqualTo(bufferWithHeadSize * 4);
+                            assertThat(region.offset).isEqualTo(BUFFER_WITH_HEAD_SIZE * 4);
                         });
         // expected region: (2-0).
         assertThat(hsDataIndex.getReadableRegion(2, 0))
@@ -217,7 +217,7 @@ class HsFileDataIndexImplTest {
                         (region) -> {
                             assertThat(region.numSkip).isEqualTo(0);
                             assertThat(region.numReadable).isEqualTo(1);
-                            assertThat(region.offset).isEqualTo(bufferWithHeadSize * 6);
+                            assertThat(region.offset).isEqualTo(BUFFER_WITH_HEAD_SIZE * 6);
                         });
     }
 
@@ -235,7 +235,7 @@ class HsFileDataIndexImplTest {
         List<SpilledBuffer> spilledBuffers = new ArrayList<>();
         for (int bufferIndex : bufferIndexes) {
             spilledBuffers.add(new SpilledBuffer(subpartitionId, bufferIndex++, currentOffset));
-            currentOffset += bufferWithHeadSize;
+            currentOffset += BUFFER_WITH_HEAD_SIZE;
         }
         return spilledBuffers;
     }
