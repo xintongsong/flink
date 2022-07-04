@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -53,9 +54,10 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * Data reader for HsResultPartition which can schedule {@link HsSubpartitionFileReader} and read
- * data for all downstream tasks.
+ * IO scheduler for HsResultPartition, which schedules {@link HsSubpartitionFileReader} for loading
+ * data w.r.t. their offset in the file.
  */
+@ThreadSafe
 public class HsResultPartitionReadScheduler implements Runnable, BufferRecycler {
     private static final Logger LOG = LoggerFactory.getLogger(HsResultPartitionReadScheduler.class);
 
@@ -112,6 +114,7 @@ public class HsResultPartitionReadScheduler implements Runnable, BufferRecycler 
     @GuardedBy("lock")
     private volatile boolean isReleased;
 
+    @GuardedBy("lock")
     private FileChannel dataFileChannel;
 
     public HsResultPartitionReadScheduler(
@@ -131,36 +134,16 @@ public class HsResultPartitionReadScheduler implements Runnable, BufferRecycler 
     }
 
     @Override
+    // Note, this method is synchronized on `this`, not `lock`. The purpose here is to prevent
+    // concurrent `run()` executions. Concurrent calls to other methods are allowed.
     public synchronized void run() {
-        Queue<HsSubpartitionFileReader> availableReaders = prepareAndGetAvailableReaders();
-
-        if (availableReaders.isEmpty()) {
-            endCurrentRoundOfReading(0);
-            return;
-        }
-
-        Queue<MemorySegment> buffers = new ArrayDeque<>();
-        try {
-            buffers = allocateBuffers();
-        } catch (Exception exception) {
-            // fail all pending subpartition readers immediately if any exception occurs
-            failSubpartitionReaders(availableReaders, exception);
-            LOG.error("Failed to request buffers for data reading.", exception);
-        }
-        int numBuffersAllocated = buffers.size();
-
-        readData(availableReaders, buffers);
-
-        int numBuffersRead = numBuffersAllocated - buffers.size();
-
-        releaseBuffers(buffers);
-
+        int numBuffersRead = tryRead();
         endCurrentRoundOfReading(numBuffersRead);
     }
 
     /** This method only called by result partition to create subpartitionFileReader. */
     public HsSubpartitionFileReader registerNewSubpartition(
-            int subpartitionId, HsSubpartitionViewOperation notifier) throws IOException {
+            int subpartitionId, HsSubpartitionViewInternalOperations notifier) throws IOException {
         synchronized (lock) {
             lazyInitialize();
 
@@ -182,8 +165,7 @@ public class HsResultPartitionReadScheduler implements Runnable, BufferRecycler 
      * Releases this read scheduler and returns a {@link CompletableFuture} which will be completed
      * when all resources are released.
      */
-    public synchronized CompletableFuture<?> release() {
-        List<HsSubpartitionFileReader> pendingReaders;
+    public CompletableFuture<?> release() {
         synchronized (lock) {
             if (isReleased) {
                 return releaseFuture;
@@ -191,21 +173,51 @@ public class HsResultPartitionReadScheduler implements Runnable, BufferRecycler 
             isReleased = true;
 
             failedReaders.addAll(allReaders);
-            pendingReaders = new ArrayList<>(allReaders);
+            List<HsSubpartitionFileReader> pendingReaders = new ArrayList<>(allReaders);
             mayNotifyReleased();
+            failSubpartitionReaders(
+                    pendingReaders,
+                    new IllegalStateException("Result partition has been already released."));
+            return releaseFuture;
         }
-
-        failSubpartitionReaders(
-                pendingReaders,
-                new IllegalStateException("Result partition has been already released."));
-        return releaseFuture;
     }
 
     // ------------------------------------------------------------------------
     //  Internal Methods
     // ------------------------------------------------------------------------
 
+    /** @return number of buffers read. */
+    private int tryRead() {
+        Queue<HsSubpartitionFileReader> availableReaders = prepareAndGetAvailableReaders();
+        if (availableReaders.isEmpty()) {
+            return 0;
+        }
+
+        Queue<MemorySegment> buffers;
+        try {
+            buffers = allocateBuffers();
+        } catch (Exception exception) {
+            // fail all pending subpartition readers immediately if any exception occurs
+            failSubpartitionReaders(availableReaders, exception);
+            LOG.error("Failed to request buffers for data reading.", exception);
+            return 0;
+        }
+
+        int numBuffersAllocated = buffers.size();
+        if (numBuffersAllocated <= 0) {
+            return 0;
+        }
+
+        readData(availableReaders, buffers);
+        int numBuffersRead = numBuffersAllocated - buffers.size();
+
+        releaseBuffers(buffers);
+
+        return numBuffersRead;
+    }
+
     @SuppressWarnings("FieldAccessNotGuarded")
+    // read-only access to volatile isReleased and numRequestedBuffers
     private Queue<MemorySegment> allocateBuffers() throws Exception {
         long timeoutTime = getBufferRequestTimeoutTime();
         do {
@@ -218,10 +230,17 @@ public class HsResultPartitionReadScheduler implements Runnable, BufferRecycler 
                 || System.nanoTime() < (timeoutTime = getBufferRequestTimeoutTime()));
 
         if (numRequestedBuffers <= 0) {
-            // If the buffer request times out, an exception should be thrown to fail all
-            // subpartitionReaders, otherwise a deadlock may occur (Some operators have consumption
-            // priorities, if low-priority subpartitions occupy the buffer but do not consume, then
-            // high-priority subpartitions can't request buffer.)
+            // This is a safe net against potential deadlocks.
+            //
+            // A deadlock can happen when the downstream task needs to consume multiple result
+            // partitions (e.g., A and B) in specific order (cannot consume B before finishing
+            // consuming A). Since the reading buffer pool is shared across the TM, if B happens to
+            // take all the buffers, A cannot be consumed due to lack of buffers, which also blocks
+            // B from being consumed and releasing the buffers.
+            //
+            // The imperfect solution here is to fail all the subpartitionReaders (A), which
+            // consequently fail all the downstream tasks, unregister their other
+            // subpartitionReaders (B) and release the read buffers.
             throw new TimeoutException(
                     String.format(
                             "Buffer request timeout, this means there is a fierce contention of"
@@ -353,6 +372,7 @@ public class HsResultPartitionReadScheduler implements Runnable, BufferRecycler 
         return FileChannel.open(path, StandardOpenOption.READ);
     }
 
+    @GuardedBy("lock")
     private void closeFileChannel() {
         assert Thread.holdsLock(lock);
 

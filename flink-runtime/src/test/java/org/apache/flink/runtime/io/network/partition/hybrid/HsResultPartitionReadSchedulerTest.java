@@ -61,7 +61,7 @@ class HsResultPartitionReadSchedulerTest {
 
     private HsResultPartitionReadScheduler readScheduler;
 
-    private TestingSubpartitionViewOperation subpartitionViewOperation;
+    private TestingSubpartitionViewInternalOperation subpartitionViewOperation;
 
     @BeforeEach
     void before(@TempDir Path tempDir) throws IOException {
@@ -79,7 +79,7 @@ class HsResultPartitionReadSchedulerTest {
                         dataFilePath,
                         HybridShuffleConfiguration.createConfiguration(
                                 bufferPool.getNumBuffersPerRequest(), NUM_SUBPARTITIONS));
-        subpartitionViewOperation = new TestingSubpartitionViewOperation();
+        subpartitionViewOperation = new TestingSubpartitionViewInternalOperation();
     }
 
     @AfterEach

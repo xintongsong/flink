@@ -67,7 +67,7 @@ class HsSubpartitionFileReaderTest {
 
     private HsFileDataIndex diskIndex;
 
-    private TestingSubpartitionViewOperation subpartitionOperation;
+    private TestingSubpartitionViewInternalOperation subpartitionOperation;
 
     private FileChannel dataFileChannel;
 
@@ -80,7 +80,7 @@ class HsSubpartitionFileReaderTest {
         Path dataFilePath = Files.createFile(tempPath.resolve(".data"));
         dataFileChannel = openFileChannel(dataFilePath);
         diskIndex = new HsFileDataIndexImpl(1);
-        subpartitionOperation = new TestingSubpartitionViewOperation();
+        subpartitionOperation = new TestingSubpartitionViewInternalOperation();
         currentFileOffset = 0L;
     }
 
@@ -247,8 +247,10 @@ class HsSubpartitionFileReaderTest {
     @Test
     void testCompareTo() throws Exception {
         diskIndex = new HsFileDataIndexImpl(2);
-        TestingSubpartitionViewOperation viewNotifier1 = new TestingSubpartitionViewOperation();
-        TestingSubpartitionViewOperation viewNotifier2 = new TestingSubpartitionViewOperation();
+        TestingSubpartitionViewInternalOperation viewNotifier1 =
+                new TestingSubpartitionViewInternalOperation();
+        TestingSubpartitionViewInternalOperation viewNotifier2 =
+                new TestingSubpartitionViewInternalOperation();
         HsSubpartitionFileReader fileReader1 = createSubpartitionFileReader(0, viewNotifier1);
         HsSubpartitionFileReader fileReader2 = createSubpartitionFileReader(1, viewNotifier2);
         assertThat(fileReader1).isEqualByComparingTo(fileReader2);
@@ -276,7 +278,7 @@ class HsSubpartitionFileReaderTest {
     }
 
     private HsSubpartitionFileReader createSubpartitionFileReader(
-            int targetChannel, HsSubpartitionViewOperation subpartitionViewNotifier) {
+            int targetChannel, HsSubpartitionViewInternalOperations subpartitionViewNotifier) {
         return new HsSubpartitionFileReader(
                 targetChannel,
                 dataFileChannel,

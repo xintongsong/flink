@@ -18,8 +18,9 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid;
 
-/** Mock {@link HsSubpartitionViewOperation} for test. */
-public class TestingSubpartitionViewOperation implements HsSubpartitionViewOperation {
+/** Mock {@link HsSubpartitionViewInternalOperations} for test. */
+public class TestingSubpartitionViewInternalOperation
+        implements HsSubpartitionViewInternalOperations {
     // -1 indicates downstream just start consuming offset.
     private int consumingOffset = -1;
 

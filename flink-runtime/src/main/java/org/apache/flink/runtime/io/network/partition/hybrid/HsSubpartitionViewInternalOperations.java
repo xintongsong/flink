@@ -19,22 +19,14 @@
 package org.apache.flink.runtime.io.network.partition.hybrid;
 
 /**
- * Operations to notify HsSubpartitionView that disk data is available and get current consuming
- * offset.
+ * Operations provided by HsSubpartitionView that are used by other internal components of hybrid
+ * result partition.
  */
-public interface HsSubpartitionViewOperation {
+public interface HsSubpartitionViewInternalOperations {
 
-    /**
-     * Used to notify subpartitionView that data on disk is ready.
-     *
-     * <p>Attention: This method only called by IO scheduling thread.
-     */
+    /** Callback for new data become available from disk. */
     void notifyDataAvailableFromDisk();
 
-    /**
-     * Used to get subpartitionView's newest consuming progress. *
-     *
-     * <p>Attention: This method only called by IO scheduling thread.
-     */
+    /** Get the latest consuming offset of the subpartition. */
     int getConsumingOffset();
 }

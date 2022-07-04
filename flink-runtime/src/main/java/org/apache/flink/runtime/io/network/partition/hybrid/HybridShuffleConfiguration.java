@@ -22,21 +22,13 @@ import java.time.Duration;
 
 /** Configuration for hybrid shuffle mode. */
 public class HybridShuffleConfiguration {
-    /**
-     * Determine how many buffers to read ahead at most for each subpartition to prevent other
-     * consumers from starving.
-     */
+    private static final int MAX_BUFFERS_READ_AHEAD = 5;
+    private static final Duration BUFFER_REQUEST_TIMEOUT = Duration.ofMillis(5);
+
     private final int maxBuffersReadAhead;
 
-    /**
-     * Maximum time to wait when requesting read buffers from the buffer pool before throwing an
-     * exception.
-     */
     private final Duration bufferRequestTimeout;
 
-    // one partition reader can consume at most Math.max(16M, numSubpartitions) (the expected
-    // buffers per request is 8M) buffers for data read, which means larger parallelism, more
-    // buffers. Currently, it is only an empirical strategy which can not be configured.
     private final int maxRequestedBuffers;
 
     public HybridShuffleConfiguration(
@@ -46,27 +38,29 @@ public class HybridShuffleConfiguration {
         this.maxRequestedBuffers = maxRequestedBuffers;
     }
 
-    /**
-     * Temporarily adopt a fixed value, and then adjust the default value according to the
-     * experiment, and introduce configuration options.
-     */
     public static HybridShuffleConfiguration createConfiguration(
             int numSubpartitions, int numBuffersPerRequest) {
-        final int maxBuffersReadAhead = 5;
-        final Duration bufferRequestTimeout = Duration.ofMinutes(5);
         final int maxRequestedBuffers = Math.max(2 * numBuffersPerRequest, numSubpartitions);
         return new HybridShuffleConfiguration(
-                maxBuffersReadAhead, bufferRequestTimeout, maxRequestedBuffers);
+                MAX_BUFFERS_READ_AHEAD, BUFFER_REQUEST_TIMEOUT, maxRequestedBuffers);
     }
 
     public int getMaxRequestedBuffers() {
         return maxRequestedBuffers;
     }
 
+    /**
+     * Determine how many buffers to read ahead at most for each subpartition to prevent other
+     * consumers from starving.
+     */
     public int getMaxBuffersReadAhead() {
         return maxBuffersReadAhead;
     }
 
+    /**
+     * Maximum time to wait when requesting read buffers from the buffer pool before throwing an
+     * exception.
+     */
     public Duration getBufferRequestTimeout() {
         return bufferRequestTimeout;
     }

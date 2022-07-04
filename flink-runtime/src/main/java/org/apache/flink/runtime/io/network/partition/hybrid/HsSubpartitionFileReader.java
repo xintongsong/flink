@@ -42,10 +42,12 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * This component is responsible for reading data from disk.
+ * This component is responsible for reading data from disk for a specific subpartition.
  *
  * <p>In order to access the disk as sequentially as possible {@link HsSubpartitionFileReader} need
  * to be able to compare priorities.
+ *
+ * <p>Note: This class is not thread safe.
  */
 public class HsSubpartitionFileReader implements Comparable<HsSubpartitionFileReader> {
 
@@ -55,7 +57,7 @@ public class HsSubpartitionFileReader implements Comparable<HsSubpartitionFileRe
 
     private final FileChannel dataFileChannel;
 
-    private final HsSubpartitionViewOperation notifier;
+    private final HsSubpartitionViewInternalOperations notifier;
 
     private final CachedRegionManager cachedRegionManager;
 
@@ -68,7 +70,7 @@ public class HsSubpartitionFileReader implements Comparable<HsSubpartitionFileRe
     public HsSubpartitionFileReader(
             int subpartitionId,
             FileChannel dataFileChannel,
-            HsSubpartitionViewOperation notifier,
+            HsSubpartitionViewInternalOperations notifier,
             HsFileDataIndex dataIndex,
             int maxBufferReadAhead) {
         this.subpartitionId = subpartitionId;
@@ -111,7 +113,7 @@ public class HsSubpartitionFileReader implements Comparable<HsSubpartitionFileRe
      * 2) reaches the end of the subpartition data within the region, or 3) enough data have been
      * read ahead the downstream consuming offset.
      */
-    public synchronized void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
+    public void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
             throws IOException {
         if (isFailed) {
             throw new IOException("subpartition reader has already failed.");
@@ -296,6 +298,18 @@ public class HsSubpartitionFileReader implements Comparable<HsSubpartitionFileRe
         }
     }
 
+    /**
+     * Maintains a set of cursors on the last fetched readable region.
+     *
+     * <p>The semantics are:
+     *
+     * <ol>
+     *   <li>The offset of the buffer with {@code currentBufferIndex} in file can be derived by
+     *       starting from {@code offset} and skipping {@code numSkip} buffers.
+     *   <li>The {@code numReadable} continuous buffers starting from the offset of the buffer with
+     *       {@code currentBufferIndex} belongs to the same readable region.
+     * </ol>
+     */
     private static class CachedRegionManager {
         private final int subpartitionId;
         private final HsFileDataIndex dataIndex;
@@ -327,13 +341,10 @@ public class HsSubpartitionFileReader implements Comparable<HsSubpartitionFileRe
         }
 
         /**
-         * Returns index and file offset of a buffer that is:
+         * Maps the given buffer index to the offset in file.
          *
-         * <ol>
-         *   <li>In the same region as the requested buffer.
-         *   <li>Index is the largest less than or equal to the requested buffer.
-         *   <li>File offset is known.
-         * </ol>
+         * @return a tuple of {@code <numSkip,offset>}. The offset of the given buffer index can be
+         *     derived by starting from the {@code offset} and skipping {@code numSkip} buffers.
          */
         private Tuple2<Integer, Long> getNumSkipAndFileOffset(int bufferIndex) {
             updateCachedRegionIfNeeded(bufferIndex);
@@ -356,6 +367,7 @@ public class HsSubpartitionFileReader implements Comparable<HsSubpartitionFileRe
         //  Internal Methods
         // ------------------------------------------------------------------------
 
+        /** Points the cursors to the given buffer index, if possible. */
         private void updateCachedRegionIfNeeded(int bufferIndex) {
             if (isInCachedRegion(bufferIndex)) {
                 int numAdvance = bufferIndex - currentBufferIndex;
