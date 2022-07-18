@@ -58,13 +58,12 @@ public class HsMemoryDataSpiller implements AutoCloseable {
      *
      * @param bufferToSpill buffers need to be spilled, must ensure that it is sorted by
      *     (subpartitionId, bufferIndex).
-     * @return the completable future contains spilled buffers information.
+     * @param spillFuture the completable future contains spilled buffers information.
      */
-    public CompletableFuture<List<SpilledBuffer>> spillAsync(
-            List<BufferWithIdentity> bufferToSpill) {
-        CompletableFuture<List<SpilledBuffer>> spilledFuture = new CompletableFuture<>();
-        ioExecutor.execute(() -> spill(bufferToSpill, spilledFuture));
-        return spilledFuture;
+    public void spillAsync(
+            List<BufferWithIdentity> bufferToSpill,
+            CompletableFuture<List<SpilledBuffer>> spillFuture) {
+        ioExecutor.execute(() -> spill(bufferToSpill, spillFuture));
     }
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
