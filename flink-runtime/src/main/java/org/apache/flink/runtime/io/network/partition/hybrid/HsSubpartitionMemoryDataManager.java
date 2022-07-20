@@ -194,7 +194,7 @@ public class HsSubpartitionMemoryDataManager {
                             HsBufferContext bufferContext =
                                     checkNotNull(unConsumedBuffers.pollFirst());
 
-                            bufferContext.onBufferConsumed();
+                            bufferContext.consumed();
                             pollReleasedBufferFromHead(unConsumedBuffers);
                             HsBufferContext next = unConsumedBuffers.peekFirst();
                             Buffer.DataType nextDataType =
@@ -430,7 +430,7 @@ public class HsSubpartitionMemoryDataManager {
     @GuardedBy("subpartitionLock")
     private void onBufferReleased(int bufferIndex) {
         HsBufferContext bufferContext = checkNotNull(bufferIndexToContexts.remove(bufferIndex));
-        bufferContext.onBufferReleased();
+        bufferContext.release();
         // remove released buffers from head lazy.
         pollReleasedBufferFromHead(allBuffers);
     }
@@ -438,7 +438,7 @@ public class HsSubpartitionMemoryDataManager {
     @GuardedBy("subpartitionLock")
     private HsBufferContext onBufferSpill(int bufferIndex, CompletableFuture<Void> spillFuture) {
         HsBufferContext bufferContext = checkNotNull(bufferIndexToContexts.get(bufferIndex));
-        bufferContext.onBufferSpill(spillFuture);
+        bufferContext.startSpilling(spillFuture);
         return bufferContext;
     }
 
@@ -446,9 +446,12 @@ public class HsSubpartitionMemoryDataManager {
     private void checkAndMarkBufferReadable(HsBufferContext bufferContext) {
         // only spill and not consumed buffer needs to be marked as readable.
         if (isBufferSatisfyStatus(bufferContext, SpillStatus.SPILL, ConsumeStatus.NOT_CONSUMED)) {
-            checkNotNull(
-                            bufferContext.getSpilledFuture(),
-                            "Buffer in spill status should already set spilled future.")
+            bufferContext
+                    .getSpilledFuture()
+                    .orElseThrow(
+                            () ->
+                                    new IllegalStateException(
+                                            "Buffer in spill status should already set spilled future."))
                     .thenRun(
                             () ->
                                     markBufferReadableCallBack.accept(
@@ -468,10 +471,10 @@ public class HsSubpartitionMemoryDataManager {
         boolean isNeeded = true;
         switch (spillStatus) {
             case NOT_SPILL:
-                isNeeded = !bufferContext.isSpill();
+                isNeeded = !bufferContext.isSpillStarted();
                 break;
             case SPILL:
-                isNeeded = bufferContext.isSpill();
+                isNeeded = bufferContext.isSpillStarted();
                 break;
         }
         switch (consumeStatus) {

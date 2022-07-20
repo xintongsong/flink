@@ -19,12 +19,10 @@
 package org.apache.flink.runtime.io.network.partition.hybrid;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.consumer.LocalInputChannel;
-import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.NotThreadSafe;
 
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.util.Preconditions.checkState;
@@ -32,27 +30,28 @@ import static org.apache.flink.util.Preconditions.checkState;
 /**
  * This class maintains the buffer's reference count and its status for hybrid shuffle mode.
  *
- * <p>Each buffer has three status: {@link #isReleased}, {@link #isSpill}, {@link #isConsumed}.If
- * buffer is released it can no longer set isSpill and isConsumed status to true.
+ * <p>Each buffer has three status: {@link #released}, {@link #spillStarted}, {@link #consumed}.
  *
  * <ul>
- *   <li>{@link #isReleased} will be true when buffer is released from memory.
- *   <li>{@link #isSpill} will be true when buffer is decided to spill.
- *   <li>{@link #isConsumed} will be true when buffer is consumed by downStream.
+ *   <li>{@link #released} indicates that buffer has been released from the memory data manager, and
+ *       can no longer be spilled or consumed.
+ *   <li>{@link #spillStarted} indicates that spilling of the buffer has started, either completed
+ *       or not.
+ *   <li>{@link #consumed} indicates that buffer has been consumed by the downstream.
  * </ul>
  *
- * <p>Buffer will increase or decrease the reference count when the status changes in a dual way.
+ * <p>Reference count of the buffer is maintained as follows: *
  *
  * <ul>
- *   <li>spill: +1, spilled: -1
- *   <li>consumed: +1, consuming completed(netty thread send buffer to {@link RemoteInputChannel} or
- *       handled by {@link LocalInputChannel}): -1
- *   <li>created: +1, released from {@link HsMemoryDataManager}: -1
+ *   <li>+1 when the buffer is obtained by memory data manager (from the buffer pool), and -1 when
+ *       it is released from memory data manager.
+ *   <li>+1 when spilling of the buffer is tarted, and -1 when it is completed.
+ *   <li>+1 when the buffer is being consumed, and -1 when consuming is completed (by the
+ *       downstream).
  * </ul>
  *
- * <p>Note that: This class itself is not thread-safe.
+ * <p>Note: This class is not thread-safe.
  */
-@NotThreadSafe
 public class HsBufferContext {
     private final Buffer buffer;
 
@@ -61,45 +60,17 @@ public class HsBufferContext {
     // --------------------------
     //      Buffer Status
     // --------------------------
-    private boolean isReleased;
+    private boolean released;
 
-    private boolean isSpill;
+    private boolean spillStarted;
 
-    private boolean isConsumed;
+    private boolean consumed;
 
     @Nullable private CompletableFuture<Void> spilledFuture;
 
     public HsBufferContext(Buffer buffer, int bufferIndex, int subpartitionId) {
         this.bufferIndexAndChannel = new BufferIndexAndChannel(bufferIndex, subpartitionId);
         this.buffer = buffer;
-    }
-
-    public void onBufferReleased() {
-        checkState(!isReleased, "Release buffer repeatedly is unexpected.");
-        isReleased = true;
-        // decrease ref count when buffer is released from memory.
-        buffer.recycleBuffer();
-    }
-
-    public void onBufferSpill(CompletableFuture<Void> spilledFuture) {
-        checkState(!isReleased, "Buffer is already released.");
-        checkState(
-                !isSpill && this.spilledFuture == null, "Spill buffer repeatedly is unexpected.");
-        isSpill = true;
-        // increase ref count when buffer is decided to spill.
-        buffer.retainBuffer();
-        // decrease ref count when buffer spilling is finished.
-        spilledFuture.thenRun(buffer::recycleBuffer);
-        this.spilledFuture = spilledFuture;
-    }
-
-    public void onBufferConsumed() {
-        checkState(!isReleased, "Buffer is already released.");
-        checkState(!isConsumed, "Consume buffer repeatedly is unexpected.");
-        isConsumed = true;
-        // increase ref count when buffer is consumed, will be decreased when downstream finish
-        // consuming.
-        buffer.retainBuffer();
     }
 
     public Buffer getBuffer() {
@@ -110,20 +81,48 @@ public class HsBufferContext {
         return bufferIndexAndChannel;
     }
 
-    @Nullable
-    public CompletableFuture<Void> getSpilledFuture() {
-        return spilledFuture;
-    }
-
     public boolean isReleased() {
-        return isReleased;
+        return released;
     }
 
-    public boolean isSpill() {
-        return isSpill;
+    public boolean isSpillStarted() {
+        return spillStarted;
     }
 
     public boolean isConsumed() {
-        return isConsumed;
+        return consumed;
+    }
+
+    public Optional<CompletableFuture<Void>> getSpilledFuture() {
+        return Optional.ofNullable(spilledFuture);
+    }
+
+    public void release() {
+        checkState(!released, "Release buffer repeatedly is unexpected.");
+        released = true;
+        // decrease ref count when buffer is released from memory.
+        buffer.recycleBuffer();
+    }
+
+    public void startSpilling(CompletableFuture<Void> spilledFuture) {
+        checkState(!released, "Buffer is already released.");
+        checkState(
+                !spillStarted && this.spilledFuture == null,
+                "Spill buffer repeatedly is unexpected.");
+        spillStarted = true;
+        this.spilledFuture = spilledFuture;
+        // increase ref count when buffer is decided to spill.
+        buffer.retainBuffer();
+        // decrease ref count when buffer spilling is finished.
+        spilledFuture.thenRun(buffer::recycleBuffer);
+    }
+
+    public void consumed() {
+        checkState(!released, "Buffer is already released.");
+        checkState(!consumed, "Consume buffer repeatedly is unexpected.");
+        consumed = true;
+        // increase ref count when buffer is consumed, will be decreased when downstream finish
+        // consuming.
+        buffer.retainBuffer();
     }
 }
