@@ -30,7 +30,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.HsSpillingInfoProvid
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.nio.ByteBuffer;
@@ -92,19 +91,11 @@ public class HsSubpartitionMemoryDataManager {
      */
     private final Consumer<Integer> markBufferReadableCallBack;
 
-    private final Lock resultPartitionReadLock;
-
-    // this field only accessed by task main thread.
+    // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
 
-    // this field only accessed by task main thread.
+    // Not guarded by lock because it is expected only accessed from task's main thread.
     private int finishedBufferIndex;
-
-    /**
-     * Lock for subpartition's own field. All buffers status belong to this subpartition guarded by
-     * this lock.
-     */
-    private final Object subpartitionLock = new Object();
 
     @GuardedBy("subpartitionLock")
     private final Deque<HsBufferContext> allBuffers = new LinkedList<>();
@@ -113,24 +104,29 @@ public class HsSubpartitionMemoryDataManager {
     private final Deque<HsBufferContext> unConsumedBuffers = new LinkedList<>();
 
     @GuardedBy("subpartitionLock")
-    private final Map<Integer, HsBufferContext> bufferIndexToContexts;
+    private final Map<Integer, HsBufferContext> bufferIndexToContexts = new HashMap<>();
+
+    /** DO NOT USE DIRECTLY. Use {@link #runWithLock} or {@link #callWithLock} instead. */
+    private final Lock resultPartitionLock;
+
+    /** DO NOT USE DIRECTLY. Use {@link #runWithLock} or {@link #callWithLock} instead. */
+    private final Object subpartitionLock = new Object();
 
     HsSubpartitionMemoryDataManager(
             int targetChannel,
             int bufferSize,
-            Lock resultPartitionReadLock,
+            Lock resultPartitionLock,
             SupplierWithException<BufferBuilder, InterruptedException> bufferProvider,
             Runnable onBufferFinishedCallBack,
             Consumer<BufferIndexAndChannel> onBufferConsumedCallBack,
             Consumer<Integer> markBufferReadableCallBack) {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
-        this.resultPartitionReadLock = resultPartitionReadLock;
+        this.resultPartitionLock = resultPartitionLock;
         this.bufferProvider = bufferProvider;
         this.onBufferFinishedCallBack = onBufferFinishedCallBack;
         this.onBufferConsumedCallBack = onBufferConsumedCallBack;
         this.markBufferReadableCallBack = markBufferReadableCallBack;
-        this.bufferIndexToContexts = new HashMap<>();
     }
 
     // ------------------------------------------------------------------------
@@ -141,72 +137,68 @@ public class HsSubpartitionMemoryDataManager {
      * Check whether the head of {@link #unConsumedBuffers} is the expected buffer. If so, return
      * the expected buffer's data type.
      *
-     * @param expectedBufferIndex buffer index of target buffer.
+     * @param nextToConsumeIndex buffer index of target buffer.
      * @return If the head of {@link #unConsumedBuffers} is target, return the buffer's data type.
      *     Otherwise, return null.
      */
     @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    public Buffer.DataType checkAndPeekFirstBufferDataType(int expectedBufferIndex) {
-        return callWithLock(
-                () -> {
-                    pollReleasedBufferFromHead(unConsumedBuffers);
-                    if (unConsumedBuffers.isEmpty()
-                            || unConsumedBuffers
-                                            .peekFirst()
-                                            .getBufferIndexAndChannel()
-                                            .getBufferIndex()
-                                    != expectedBufferIndex) {
-                        return Buffer.DataType.NONE;
-                    }
-                    HsBufferContext bufferContext = checkNotNull(unConsumedBuffers.peekFirst());
-                    return bufferContext.getBuffer().getDataType();
-                });
+    // TODO: Update javadoc
+    public Buffer.DataType peekNextToConsumeDataType(int nextToConsumeIndex) {
+        return callWithLock(() -> peekNextToConsumeDataTypeInternal(nextToConsumeIndex));
     }
 
     /**
      * Check whether the head of {@link #unConsumedBuffers} is the expected buffer. If so, return
      * the expected buffer and next data type.
      *
-     * @param expectedBufferIndex buffer index of target buffer.
+     * @param nextToConsumeIndex buffer index of target buffer.
      * @return If the head of {@link #unConsumedBuffers} is target, return the buffer and next data
      *     type. Otherwise, return null.
      */
-    @Nullable
     @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    public HsMemoryDataManager.BufferAndNextDataType checkAndPollBuffer(int expectedBufferIndex) {
-        Tuple2<HsBufferContext, Buffer.DataType> bufferAndNextDataType =
+    // TODO: Update javadoc
+    public Optional<HsMemoryDataManager.BufferAndNextDataType> consumeBuffer(
+            int nextToConsumeIndex) {
+        Optional<Tuple2<HsBufferContext, Buffer.DataType>> bufferAndNextDataType =
                 callWithLock(
                         () -> {
-                            pollReleasedBufferFromHead(unConsumedBuffers);
-                            if (unConsumedBuffers.isEmpty()
-                                    || unConsumedBuffers
-                                                    .peekFirst()
-                                                    .getBufferIndexAndChannel()
-                                                    .getBufferIndex()
-                                            != expectedBufferIndex) {
-                                return null;
+                            if (!checkFirstUnConsumedBufferIndex(nextToConsumeIndex)) {
+                                return Optional.empty();
                             }
 
                             HsBufferContext bufferContext =
                                     checkNotNull(unConsumedBuffers.pollFirst());
-
                             bufferContext.consumed();
-                            pollReleasedBufferFromHead(unConsumedBuffers);
-                            HsBufferContext next = unConsumedBuffers.peekFirst();
                             Buffer.DataType nextDataType =
-                                    next == null
-                                            ? Buffer.DataType.NONE
-                                            : next.getBuffer().getDataType();
-                            return Tuple2.of(bufferContext, nextDataType);
+                                    peekNextToConsumeDataTypeInternal(nextToConsumeIndex + 1);
+                            return Optional.of(Tuple2.of(bufferContext, nextDataType));
                         });
 
-        onBufferConsumedCallBack.accept(bufferAndNextDataType.f0.getBufferIndexAndChannel());
-        return new HsMemoryDataManager.BufferAndNextDataType(
-                bufferAndNextDataType.f0.getBuffer(), bufferAndNextDataType.f1);
+        bufferAndNextDataType.ifPresent(
+                tuple -> onBufferConsumedCallBack.accept(tuple.f0.getBufferIndexAndChannel()));
+        return bufferAndNextDataType.map(
+                tuple ->
+                        new HsMemoryDataManager.BufferAndNextDataType(
+                                tuple.f0.getBuffer(), tuple.f1));
+    }
+
+    @GuardedBy("subpartitionLock")
+    private Buffer.DataType peekNextToConsumeDataTypeInternal(int nextToConsumeIndex) {
+        return checkFirstUnConsumedBufferIndex(nextToConsumeIndex)
+                ? checkNotNull(unConsumedBuffers.peekFirst()).getBuffer().getDataType()
+                : Buffer.DataType.NONE;
+    }
+
+    @GuardedBy("subpartitionLock")
+    private boolean checkFirstUnConsumedBufferIndex(int expectedBufferIndex) {
+        trimHeadingReleasedBuffers(unConsumedBuffers);
+        return !unConsumedBuffers.isEmpty()
+                && unConsumedBuffers.peekFirst().getBufferIndexAndChannel().getBufferIndex()
+                        == expectedBufferIndex;
     }
 
     // ------------------------------------------------------------------------
@@ -417,13 +409,13 @@ public class HsSubpartitionMemoryDataManager {
     }
 
     /**
-     * Poll all released buffer from head of queue until buffer queue is empty or meet un-released
+     * Remove all released buffer from head of queue until buffer queue is empty or meet un-released
      * buffer.
      */
     @GuardedBy("subpartitionLock")
-    private void pollReleasedBufferFromHead(Deque<HsBufferContext> bufferQueue) {
+    private void trimHeadingReleasedBuffers(Deque<HsBufferContext> bufferQueue) {
         while (!bufferQueue.isEmpty() && bufferQueue.peekFirst().isReleased()) {
-            bufferQueue.pollFirst();
+            bufferQueue.removeFirst();
         }
     }
 
@@ -432,7 +424,7 @@ public class HsSubpartitionMemoryDataManager {
         HsBufferContext bufferContext = checkNotNull(bufferIndexToContexts.remove(bufferIndex));
         bufferContext.release();
         // remove released buffers from head lazy.
-        pollReleasedBufferFromHead(allBuffers);
+        trimHeadingReleasedBuffers(allBuffers);
     }
 
     @GuardedBy("subpartitionLock")
@@ -490,23 +482,23 @@ public class HsSubpartitionMemoryDataManager {
 
     private <E extends Exception> void runWithLock(ThrowingRunnable<E> runnable) throws E {
         try {
-            resultPartitionReadLock.lock();
+            resultPartitionLock.lock();
             synchronized (subpartitionLock) {
                 runnable.run();
             }
         } finally {
-            resultPartitionReadLock.unlock();
+            resultPartitionLock.unlock();
         }
     }
 
     private <R, E extends Exception> R callWithLock(SupplierWithException<R, E> callable) throws E {
         try {
-            resultPartitionReadLock.lock();
+            resultPartitionLock.lock();
             synchronized (subpartitionLock) {
                 return callable.get();
             }
         } finally {
-            resultPartitionReadLock.unlock();
+            resultPartitionLock.unlock();
         }
     }
 }
