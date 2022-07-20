@@ -84,8 +84,8 @@ class HsMemoryDataSpillerTest {
         // close data file channel to trigger exception when spill data into disk.
         dataFileChannel.close();
 
-        CompletableFuture<List<SpilledBuffer>> future = new CompletableFuture<>();
-        memoryDataSpiller.spillAsync(bufferWithIdentityList, future);
+        CompletableFuture<List<SpilledBuffer>> future =
+                memoryDataSpiller.spillAsync(bufferWithIdentityList);
         assertThat(future)
                 .failsWithin(60, TimeUnit.SECONDS)
                 .withThrowableOfType(ExecutionException.class)
@@ -101,8 +101,8 @@ class HsMemoryDataSpillerTest {
         bufferWithIdentityList.addAll(
                 createBufferWithIdentityList(
                         0, Arrays.asList(Tuple2.of(4, 0), Tuple2.of(5, 1), Tuple2.of(6, 2))));
-        CompletableFuture<List<SpilledBuffer>> future = new CompletableFuture<>();
-        memoryDataSpiller.spillAsync(bufferWithIdentityList, future);
+        CompletableFuture<List<SpilledBuffer>> future =
+                memoryDataSpiller.spillAsync(bufferWithIdentityList);
         List<SpilledBuffer> expectedSpilledBuffers =
                 getExpectedSpilledBuffers(bufferWithIdentityList);
         assertThat(future)

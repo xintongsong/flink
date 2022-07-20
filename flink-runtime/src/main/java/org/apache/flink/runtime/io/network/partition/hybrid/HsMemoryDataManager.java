@@ -22,9 +22,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
-import org.apache.flink.runtime.io.network.partition.hybrid.HsFileDataIndex.SpilledBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsSpillingStrategy.Decision;
-import org.apache.flink.util.concurrent.FutureUtils;
 import org.apache.flink.util.function.SupplierWithException;
 
 import java.io.IOException;
@@ -222,9 +220,7 @@ public class HsMemoryDataManager implements HsSpillingInfoProvider {
      * @param toSpill All buffers that need to be spilled in a decision.
      */
     private void spillBuffers(Map<Integer, List<BufferIndexAndChannel>> toSpill) {
-        CompletableFuture<List<SpilledBuffer>> spilledBuffersFuture = new CompletableFuture<>();
-        CompletableFuture<Void> spillDoneFuture =
-                FutureUtils.runAfterwards(spilledBuffersFuture, () -> {});
+        CompletableFuture<Void> spillingCompleteFuture = new CompletableFuture<>();
         List<BufferWithIdentity> bufferWithIdentities = new ArrayList<>();
         toSpill.forEach(
                 (subpartitionId, bufferIndexAndChannels) -> {
@@ -232,17 +228,17 @@ public class HsMemoryDataManager implements HsSpillingInfoProvider {
                             getSubpartitionMemoryDataManager(subpartitionId);
                     bufferWithIdentities.addAll(
                             subpartitionDataBuffer.spillSubpartitionBuffers(
-                                    bufferIndexAndChannels, spillDoneFuture));
+                                    bufferIndexAndChannels, spillingCompleteFuture));
                     // decrease numUnSpillBuffers as this subpartition's buffer is spill.
                     numUnSpillBuffers.getAndAdd(-bufferIndexAndChannels.size());
                 });
 
-        spiller.spillAsync(bufferWithIdentities, spilledBuffersFuture);
-
-        // update data index when spilling operation finished.
-        spilledBuffersFuture.thenAccept(
-                // in spilling thread, this method is thread safe.
-                dataIndex::addBuffers);
+        spiller.spillAsync(bufferWithIdentities)
+                .thenAccept(
+                        spilledBuffers -> {
+                            dataIndex.addBuffers(spilledBuffers);
+                            spillingCompleteFuture.complete(null);
+                        });
     }
 
     /**
