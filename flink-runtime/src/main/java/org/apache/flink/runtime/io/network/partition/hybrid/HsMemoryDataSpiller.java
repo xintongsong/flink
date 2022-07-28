@@ -34,6 +34,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * This component is responsible for asynchronously writing in-memory data to disk. Each spilling
@@ -145,8 +147,31 @@ public class HsMemoryDataSpiller implements AutoCloseable {
         bufferWithHeaders[index + 1] = buffer.getNioBufferReadable();
     }
 
-    @Override
-    public void close() throws Exception {
+    /**
+     * Close this {@link HsMemoryDataSpiller} when resultPartition is closed. It means spiller will
+     * no longer accept new spilling operation.
+     *
+     * <p>This method only called by main task thread.
+     */
+    public void close() {
         ioExecutor.shutdown();
+    }
+
+    /**
+     * Release this {@link HsMemoryDataSpiller} when resultPartition is released. It means spiller
+     * will wait for all previous spilling operation done blocking and close the file channel.
+     *
+     * <p>This method only called by rpc thread.
+     */
+    public void release() {
+        try {
+            ioExecutor.shutdown();
+            if (!ioExecutor.awaitTermination(5L, TimeUnit.MINUTES)) {
+                throw new TimeoutException("Shutdown spilling thread timeout.");
+            }
+            dataFileChannel.close();
+        } catch (Exception e) {
+            ExceptionUtils.rethrow(e);
+        }
     }
 }

@@ -44,9 +44,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Tests for {@link HsMemoryDataSpiller}. */
 @ExtendWith(TestLoggerExtension.class)
@@ -57,18 +59,18 @@ class HsMemoryDataSpillerTest {
     private static final long BUFFER_WITH_HEADER_SIZE =
             BUFFER_SIZE + BufferReaderWriterUtil.HEADER_LENGTH;
 
-    private FileChannel dataFileChannel;
+    private FileChannel writeChannel;
+
+    private FileChannel readChannel;
 
     private HsMemoryDataSpiller memoryDataSpiller;
 
     @BeforeEach
     void before(@TempDir Path tempDir) throws Exception {
-        dataFileChannel =
-                FileChannel.open(
-                        Files.createFile(tempDir.resolve(".data")),
-                        StandardOpenOption.WRITE,
-                        StandardOpenOption.READ);
-        this.memoryDataSpiller = new HsMemoryDataSpiller(dataFileChannel);
+        Path dataFilePath = Files.createFile(tempDir.resolve(".data"));
+        writeChannel = FileChannel.open(dataFilePath, StandardOpenOption.WRITE);
+        readChannel = FileChannel.open(dataFilePath, StandardOpenOption.READ);
+        this.memoryDataSpiller = new HsMemoryDataSpiller(writeChannel);
     }
 
     @Test
@@ -115,6 +117,31 @@ class HsMemoryDataSpillerTest {
                         Tuple2.of(6, 2)));
     }
 
+    @Test
+    void testClose() {
+        List<BufferWithIdentity> bufferWithIdentityList = new ArrayList<>();
+        bufferWithIdentityList.addAll(
+                createBufferWithIdentityList(
+                        0, Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
+        memoryDataSpiller.close();
+        assertThatThrownBy(() -> memoryDataSpiller.spillAsync(bufferWithIdentityList))
+                .isInstanceOf(RejectedExecutionException.class);
+    }
+
+    @Test
+    void testRelease() throws Exception {
+        List<BufferWithIdentity> bufferWithIdentityList =
+                new ArrayList<>(
+                        createBufferWithIdentityList(
+                                0,
+                                Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
+        memoryDataSpiller.spillAsync(bufferWithIdentityList);
+        // blocked until spill finished.
+        memoryDataSpiller.release();
+        assertThat(writeChannel.isOpen()).isFalse();
+        checkData(Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2)));
+    }
+
     /**
      * create buffer with identity list.
      *
@@ -158,14 +185,12 @@ class HsMemoryDataSpillerTest {
     }
 
     private void checkData(List<Tuple2<Integer, Integer>> dataAndIndexes) throws Exception {
-        // reset channel position for read.
-        dataFileChannel.position(0);
         ByteBuffer headerBuf = BufferReaderWriterUtil.allocatedHeaderBuffer();
         MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(BUFFER_SIZE);
         for (Tuple2<Integer, Integer> dataAndIndex : dataAndIndexes) {
             Buffer buffer =
                     BufferReaderWriterUtil.readFromByteChannel(
-                            dataFileChannel, headerBuf, segment, (ignore) -> {});
+                            readChannel, headerBuf, segment, (ignore) -> {});
 
             assertThat(buffer.readableBytes()).isEqualTo(BUFFER_SIZE);
             assertThat(buffer.getNioBufferReadable().order(ByteOrder.nativeOrder()).getInt())

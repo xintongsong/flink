@@ -137,6 +137,11 @@ public class HsFileDataManager implements Runnable, BufferRecycler {
                 checkNotNull(hybridShuffleConfiguration.getBufferRequestTimeout());
     }
 
+    /** Setup read buffer pool. */
+    public void setup() {
+        bufferPool.initialize();
+    }
+
     @Override
     // Note, this method is synchronized on `this`, not `lock`. The purpose here is to prevent
     // concurrent `run()` executions. Concurrent calls to other methods are allowed.
@@ -165,6 +170,10 @@ public class HsFileDataManager implements Runnable, BufferRecycler {
             mayTriggerReading();
             return subpartitionReader;
         }
+    }
+
+    public void deleteShuffleFile() {
+        IOUtils.deleteFileQuietly(dataFilePath);
     }
 
     /**
