@@ -354,8 +354,7 @@ public class HsSubpartitionMemoryDataManager {
                             return unConsumedBuffers.isEmpty();
                         });
         if (needNotify) {
-            // TODO notify data available, the notification mechanism may need further
-            // consideration.
+            memoryDataManagerOperation.onDataAvailable(targetChannel);
         }
     }
 

@@ -26,18 +26,21 @@ import org.apache.flink.runtime.io.network.partition.hybrid.HsSpillingStrategy.D
 import org.apache.flink.util.concurrent.FutureUtils;
 import org.apache.flink.util.function.SupplierWithException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -45,6 +48,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /** This class is responsible for managing data in memory. */
 public class HsMemoryDataManager implements HsSpillingInfoProvider, HsMemoryDataManagerOperation {
+
+    private static final Logger LOG = LoggerFactory.getLogger(HsMemoryDataManager.class);
 
     private final int numSubpartitions;
 
@@ -63,6 +68,9 @@ public class HsMemoryDataManager implements HsSpillingInfoProvider, HsMemoryData
     private final AtomicInteger numRequestedBuffers = new AtomicInteger(0);
 
     private final AtomicInteger numUnSpillBuffers = new AtomicInteger(0);
+
+    private final Map<Integer, HsSubpartitionViewInternalOperations> subpartitionViewOperationsMap =
+            new ConcurrentHashMap<>();
 
     public HsMemoryDataManager(
             int numSubpartitions,
@@ -112,6 +120,22 @@ public class HsMemoryDataManager implements HsSpillingInfoProvider, HsMemoryData
             getSubpartitionMemoryDataManager(targetChannel).append(record, dataType);
         } catch (InterruptedException e) {
             throw new IOException(e);
+        }
+    }
+
+    /**
+     * Register {@link HsSubpartitionViewInternalOperations} to {@link
+     * #subpartitionViewOperationsMap}. It is used to obtain the consumption progress of the
+     * subpartition.
+     */
+    public void registerSubpartitionView(
+            int subpartitionId, HsSubpartitionViewInternalOperations viewOperations) {
+        HsSubpartitionViewInternalOperations oldView =
+                subpartitionViewOperationsMap.put(subpartitionId, viewOperations);
+        if (oldView != null) {
+            LOG.debug(
+                    "subpartition : {} register subpartition view will replace old view. ",
+                    subpartitionId);
         }
     }
 
@@ -166,8 +190,13 @@ public class HsMemoryDataManager implements HsSpillingInfoProvider, HsMemoryData
     // Write lock should be acquired before invoke this method.
     @Override
     public List<Integer> getNextBufferIndexToConsume() {
-        // TODO implements this logical when subpartition view is implemented.
-        return Collections.emptyList();
+        ArrayList<Integer> consumeIndexes = new ArrayList<>(numSubpartitions);
+        for (int channel = 0; channel < numSubpartitions; channel++) {
+            HsSubpartitionViewInternalOperations viewOperation =
+                    subpartitionViewOperationsMap.get(channel);
+            consumeIndexes.add(viewOperation == null ? -1 : viewOperation.getConsumingOffset() + 1);
+        }
+        return consumeIndexes;
     }
 
     // ------------------------------------
@@ -201,6 +230,15 @@ public class HsMemoryDataManager implements HsSpillingInfoProvider, HsMemoryData
         Optional<Decision> decision =
                 spillStrategy.onBufferFinished(numUnSpillBuffers.incrementAndGet());
         handleDecision(decision);
+    }
+
+    @Override
+    public void onDataAvailable(int subpartitionId) {
+        HsSubpartitionViewInternalOperations subpartitionViewInternalOperations =
+                subpartitionViewOperationsMap.get(subpartitionId);
+        if (subpartitionViewInternalOperations != null) {
+            subpartitionViewInternalOperations.notifyDataAvailable();
+        }
     }
 
     // ------------------------------------
