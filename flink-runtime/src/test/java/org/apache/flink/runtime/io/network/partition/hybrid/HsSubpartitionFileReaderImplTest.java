@@ -383,7 +383,12 @@ class HsSubpartitionFileReaderImplTest {
     private HsSubpartitionFileReaderImpl createSubpartitionFileReader(
             int targetChannel, HsSubpartitionViewInternalOperations operations) {
         return new HsSubpartitionFileReaderImpl(
-                targetChannel, dataFileChannel, operations, diskIndex, MAX_BUFFERS_READ_AHEAD);
+                targetChannel,
+                dataFileChannel,
+                operations,
+                diskIndex,
+                MAX_BUFFERS_READ_AHEAD,
+                (ignore) -> {});
     }
 
     private static FileChannel openFileChannel(Path path) throws IOException {

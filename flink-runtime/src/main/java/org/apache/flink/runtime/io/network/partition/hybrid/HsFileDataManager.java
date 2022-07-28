@@ -151,7 +151,7 @@ public class HsFileDataManager implements Runnable, BufferRecycler {
     }
 
     /** This method only called by result partition to create subpartitionFileReader. */
-    public HsSubpartitionFileReader registerNewSubpartition(
+    public HsDataView registerNewSubpartition(
             int subpartitionId, HsSubpartitionViewInternalOperations operation) throws IOException {
         synchronized (lock) {
             checkState(!isReleased, "HsFileDataManager is already released.");
@@ -163,7 +163,8 @@ public class HsFileDataManager implements Runnable, BufferRecycler {
                             dataFileChannel,
                             operation,
                             dataIndex,
-                            hybridShuffleConfiguration.getMaxBuffersReadAhead());
+                            hybridShuffleConfiguration.getMaxBuffersReadAhead(),
+                            this::releaseSubpartitionReader);
 
             allReaders.add(subpartitionReader);
 
@@ -174,6 +175,19 @@ public class HsFileDataManager implements Runnable, BufferRecycler {
 
     public void deleteShuffleFile() {
         IOUtils.deleteFileQuietly(dataFilePath);
+    }
+
+    /**
+     * Release specific {@link HsSubpartitionFileReader} from {@link HsFileDataManager}.
+     *
+     * @param subpartitionFileReader to release.
+     */
+    public void releaseSubpartitionReader(HsSubpartitionFileReader subpartitionFileReader) {
+        synchronized (lock) {
+            if (allReaders.contains(subpartitionFileReader)) {
+                failedReaders.add(subpartitionFileReader);
+            }
+        }
     }
 
     /**

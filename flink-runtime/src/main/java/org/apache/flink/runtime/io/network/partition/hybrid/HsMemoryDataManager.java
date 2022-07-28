@@ -154,6 +154,16 @@ public class HsMemoryDataManager implements HsSpillingInfoProvider, HsMemoryData
         spiller.release();
     }
 
+    /**
+     * Get {@link HsDataView} of target subpartition.
+     *
+     * @param subpartitionId the subpartition which excepted view belong to.
+     * @return memory data view of specific subpartition.
+     */
+    public HsDataView getSubpartitionDataView(int subpartitionId) {
+        return getSubpartitionMemoryDataManager(subpartitionId);
+    }
+
     // ------------------------------------
     //        For Spilling Strategy
     // ------------------------------------
