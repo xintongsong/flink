@@ -261,6 +261,17 @@ public class HsSubpartitionMemoryDataManager implements HsDataView {
                                 }));
     }
 
+    /** Un-synchronized get number of buffers not consumed. */
+    @SuppressWarnings("FieldAccessNotGuarded")
+    public int getNumOfBuffersUnsafe() {
+        return unConsumedBuffers.size();
+    }
+
+    /** Un-synchronized get number of bytes not consumed. */
+    public long getNumOfBytesUnsafe() {
+        return getNumOfBuffersUnsafe() * (long) bufferSize;
+    }
+
     // ------------------------------------------------------------------------
     //  Internal Methods
     // ------------------------------------------------------------------------

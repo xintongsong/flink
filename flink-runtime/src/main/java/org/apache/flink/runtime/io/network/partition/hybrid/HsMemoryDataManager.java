@@ -154,6 +154,26 @@ public class HsMemoryDataManager implements HsSpillingInfoProvider, HsMemoryData
         spiller.release();
     }
 
+    public int getNumOfBuffersUnsafe() {
+        int totalBuffers = 0;
+        for (int i = 0; i < numSubpartitions; i++) {
+            totalBuffers += getSubpartitionMemoryDataManager(i).getNumOfBuffersUnsafe();
+        }
+        return totalBuffers;
+    }
+
+    public int getNumOfBuffersUnsafe(int subpartition) {
+        return getSubpartitionMemoryDataManager(subpartition).getNumOfBuffersUnsafe();
+    }
+
+    public long getNumOfBytesUnsafe() {
+        long totalBytes = 0;
+        for (int i = 0; i < numSubpartitions; i++) {
+            totalBytes += getSubpartitionMemoryDataManager(i).getNumOfBytesUnsafe();
+        }
+        return totalBytes;
+    }
+
     /**
      * Get {@link HsDataView} of target subpartition.
      *
