@@ -94,8 +94,8 @@ public class HsFileDataManager implements Runnable, BufferRecycler {
     private final HybridShuffleConfiguration hybridShuffleConfiguration;
 
     /** All failed subpartition readers to be released. */
-    @GuardedBy("lock")
-    private final Set<HsSubpartitionFileReader> failedReaders = new HashSet<>();
+    //    @GuardedBy("lock")
+    //    private final Set<HsSubpartitionFileReader> failedReaders = new HashSet<>();
 
     /** All readers waiting to read data of different subpartitions. */
     @GuardedBy("lock")
@@ -184,9 +184,10 @@ public class HsFileDataManager implements Runnable, BufferRecycler {
      */
     public void releaseSubpartitionReader(HsSubpartitionFileReader subpartitionFileReader) {
         synchronized (lock) {
-            if (allReaders.contains(subpartitionFileReader)) {
-                failedReaders.add(subpartitionFileReader);
-            }
+            removeSubpartitionReaders(Collections.singleton(subpartitionFileReader));
+            //            if (allReaders.contains(subpartitionFileReader)) {
+            //                failedReaders.add(subpartitionFileReader);
+            //            }
         }
     }
 
@@ -201,7 +202,7 @@ public class HsFileDataManager implements Runnable, BufferRecycler {
             }
             isReleased = true;
 
-            failedReaders.addAll(allReaders);
+            //            failedReaders.addAll(allReaders);
             List<HsSubpartitionFileReader> pendingReaders = new ArrayList<>(allReaders);
             mayNotifyReleased();
             failSubpartitionReaders(
@@ -347,7 +348,8 @@ public class HsFileDataManager implements Runnable, BufferRecycler {
     private void failSubpartitionReaders(
             Collection<HsSubpartitionFileReader> readers, Throwable failureCause) {
         synchronized (lock) {
-            failedReaders.addAll(readers);
+            //            failedReaders.addAll(readers);
+            removeSubpartitionReaders(readers);
         }
 
         for (HsSubpartitionFileReader reader : readers) {
@@ -355,9 +357,18 @@ public class HsFileDataManager implements Runnable, BufferRecycler {
         }
     }
 
+    @GuardedBy("lock")
+    private void removeSubpartitionReaders(Collection<HsSubpartitionFileReader> readers) {
+        allReaders.removeAll(readers);
+        if (allReaders.isEmpty()) {
+            bufferPool.unregisterRequester(this);
+            closeFileChannel();
+        }
+    }
+
     private void endCurrentRoundOfReading(int numBuffersRead) {
         synchronized (lock) {
-            removeFailedReaders();
+            //            removeFailedReaders();
             numRequestedBuffers += numBuffersRead;
             isRunning = false;
             mayTriggerReading();
@@ -365,20 +376,20 @@ public class HsFileDataManager implements Runnable, BufferRecycler {
         }
     }
 
-    @GuardedBy("lock")
-    private void removeFailedReaders() {
-        assert Thread.holdsLock(lock);
-
-        for (HsSubpartitionFileReader reader : failedReaders) {
-            allReaders.remove(reader);
-        }
-        failedReaders.clear();
-
-        if (allReaders.isEmpty()) {
-            bufferPool.unregisterRequester(this);
-            closeFileChannel();
-        }
-    }
+    //    @GuardedBy("lock")
+    //    private void removeFailedReaders() {
+    //        assert Thread.holdsLock(lock);
+    //
+    //        for (HsSubpartitionFileReader reader : failedReaders) {
+    //            allReaders.remove(reader);
+    //        }
+    //        failedReaders.clear();
+    //
+    //        if (allReaders.isEmpty()) {
+    //            bufferPool.unregisterRequester(this);
+    //            closeFileChannel();
+    //        }
+    //    }
 
     @GuardedBy("lock")
     private void lazyInitialize() throws IOException {
