@@ -91,7 +91,7 @@ public class PipelinedRegionSchedulingStrategy implements SchedulingStrategy {
         for (SchedulingPipelinedRegion pipelinedRegion :
                 schedulingTopology.getAllPipelinedRegions()) {
             for (ConsumedPartitionGroup consumedPartitionGroup :
-                    pipelinedRegion.getAllBlockingConsumedPartitionGroups()) {
+                    pipelinedRegion.getAllNonPipelinedConsumedPartitionGroups()) {
                 producerRegionsByConsumedPartitionGroup.computeIfAbsent(
                         consumedPartitionGroup, this::getProducerRegionsForConsumedPartitionGroup);
             }
@@ -100,7 +100,7 @@ public class PipelinedRegionSchedulingStrategy implements SchedulingStrategy {
         for (SchedulingPipelinedRegion pipelinedRegion :
                 schedulingTopology.getAllPipelinedRegions()) {
             for (ConsumedPartitionGroup consumedPartitionGroup :
-                    pipelinedRegion.getAllBlockingConsumedPartitionGroups()) {
+                    pipelinedRegion.getAllNonPipelinedConsumedPartitionGroups()) {
                 final Set<SchedulingPipelinedRegion> producerRegions =
                         producerRegionsByConsumedPartitionGroup.get(consumedPartitionGroup);
                 if (producerRegions.size() > 1 && producerRegions.contains(pipelinedRegion)) {
@@ -128,7 +128,7 @@ public class PipelinedRegionSchedulingStrategy implements SchedulingStrategy {
     private void initPartitionGroupConsumerRegions() {
         for (SchedulingPipelinedRegion region : schedulingTopology.getAllPipelinedRegions()) {
             for (ConsumedPartitionGroup consumedPartitionGroup :
-                    region.getAllBlockingConsumedPartitionGroups()) {
+                    region.getAllNonPipelinedConsumedPartitionGroups()) {
                 if (crossRegionConsumedPartitionGroups.contains(consumedPartitionGroup)
                         || isExternalConsumedPartitionGroup(consumedPartitionGroup, region)) {
                     partitionGroupConsumerRegions
@@ -150,7 +150,7 @@ public class PipelinedRegionSchedulingStrategy implements SchedulingStrategy {
 
     private boolean isSourceRegion(SchedulingPipelinedRegion region) {
         for (ConsumedPartitionGroup consumedPartitionGroup :
-                region.getAllBlockingConsumedPartitionGroups()) {
+                region.getAllNonPipelinedConsumedPartitionGroups()) {
             if (crossRegionConsumedPartitionGroups.contains(consumedPartitionGroup)
                     || isExternalConsumedPartitionGroup(consumedPartitionGroup, region)) {
                 return false;
@@ -235,7 +235,7 @@ public class PipelinedRegionSchedulingStrategy implements SchedulingStrategy {
             final SchedulingPipelinedRegion region,
             final Map<ConsumedPartitionGroup, Boolean> consumableStatusCache) {
         for (ConsumedPartitionGroup consumedPartitionGroup :
-                region.getAllBlockingConsumedPartitionGroups()) {
+                region.getAllNonPipelinedConsumedPartitionGroups()) {
             if (crossRegionConsumedPartitionGroups.contains(consumedPartitionGroup)) {
                 if (!isCrossRegionConsumedPartitionConsumable(consumedPartitionGroup, region)) {
                     return false;
