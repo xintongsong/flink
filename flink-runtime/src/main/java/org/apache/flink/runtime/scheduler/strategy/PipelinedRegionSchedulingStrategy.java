@@ -187,16 +187,24 @@ public class PipelinedRegionSchedulingStrategy implements SchedulingStrategy {
                         schedulingTopology, regions);
 
         final Map<ConsumedPartitionGroup, Boolean> consumableStatusCache = new HashMap<>();
+        final Set<SchedulingPipelinedRegion> downstreamSchedulableRegions = new HashSet<>();
         for (SchedulingPipelinedRegion region : regionsSorted) {
-            maybeScheduleRegion(region, consumableStatusCache);
+            if (maybeScheduleRegion(region, consumableStatusCache)) {
+                downstreamSchedulableRegions.addAll(
+                        getSchedulableDownstreamRegionsOfRegion(region));
+            }
+        }
+
+        if (!downstreamSchedulableRegions.isEmpty()) {
+            maybeScheduleRegions(downstreamSchedulableRegions);
         }
     }
 
-    private void maybeScheduleRegion(
+    private boolean maybeScheduleRegion(
             final SchedulingPipelinedRegion region,
             final Map<ConsumedPartitionGroup, Boolean> consumableStatusCache) {
         if (!areRegionInputsAllConsumable(region, consumableStatusCache)) {
-            return;
+            return false;
         }
 
         checkState(
@@ -205,6 +213,7 @@ public class PipelinedRegionSchedulingStrategy implements SchedulingStrategy {
 
         schedulerOperations.allocateSlotsAndDeploy(regionVerticesSorted.get(region));
         scheduledRegions.add(region);
+        return true;
     }
 
     private boolean areRegionInputsAllConsumable(
