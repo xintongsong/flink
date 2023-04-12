@@ -18,9 +18,18 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered;
 
+import org.apache.flink.api.common.JobID;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorageReleaser;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.remote.RemoteTierStorageReleaser;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.remote.RemoteTieredStorageFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.UpstreamTieredStorageFactory;
+
+import java.util.Collections;
+import java.util.List;
+
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoreUtils.generateToReleasePath;
 
 /**
  * This is a shuffle environment for tiered store. When using tiered store to shuffle data, the
@@ -58,5 +67,14 @@ public class TieredStoreShuffleEnvironment {
         RemoteTieredStorageFactory tierStorageFactory = new RemoteTieredStorageFactory(tierIndexes);
         tierStorageFactory.setup();
         return tierStorageFactory;
+    }
+
+    public List<TierStorageReleaser> createStorageTierReleasers(
+            JobID jobID, String baseRemoteStoragePath) {
+        Path toReleasePath = generateToReleasePath(jobID, baseRemoteStoragePath);
+        if (toReleasePath == null) {
+            return Collections.emptyList();
+        }
+        return Collections.singletonList(new RemoteTierStorageReleaser(toReleasePath));
     }
 }
