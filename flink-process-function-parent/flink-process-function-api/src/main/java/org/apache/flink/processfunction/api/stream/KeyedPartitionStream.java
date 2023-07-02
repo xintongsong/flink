@@ -52,13 +52,13 @@ public interface KeyedPartitionStream<K, T> {
             NonKeyedPartitionStream<T_OTHER> other,
             TwoInputStreamProcessFunction<T, T_OTHER, OUT> processFunction);
 
-    /** Keyed connect to Non-Keyed. */
+    /** Keyed connect to Keyed. */
     <T_OTHER, OUT> ProcessConfigurableAndNonKeyedPartitionStream<OUT> connectAndProcess(
             KeyedPartitionStream<K, T_OTHER> other,
             TwoInputStreamProcessFunction<T, T_OTHER, OUT> processFunction);
 
     /**
-     * Keyed connect to Non-Keyed. This method is used to avoid shuffle after applying the process
+     * Keyed connect to Keyed. This method is used to avoid shuffle after applying the process
      * function. It is required that for the same record, the new {@link KeySelector} must extract
      * the same key as the {@link KeySelector} on these two {@link KeyedPartitionStream}s.
      */
