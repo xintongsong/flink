@@ -20,31 +20,42 @@ package org.apache.flink.api.common.state;
 
 import org.apache.flink.api.common.typeinfo.TypeDescriptor;
 
+import javax.annotation.Nullable;
+
 import java.io.Serializable;
 import java.util.Objects;
 
 /** All related classes of state declaration. */
 public class States {
 
-    // ------------------------------------------------------------------------
-    //  Operator State
-    // ------------------------------------------------------------------------
-    public static <T> ListStateDeclaration<T> operatorListState(
+    public static <T> ListStateDeclaration<T> listState(
             String name, TypeDescriptor<T> typeDescriptor) {
-        return null;
+        return new ListStateDeclaration<>(name, typeDescriptor, null);
     }
 
-    // ------------------------------------------------------------------------
-    //  Keyed State
-    // ------------------------------------------------------------------------
-    public static <T> ListStateDeclaration<T> keyedListState(
+    public static <T> ListStateDeclaration<T> splitRedistributionListState(
             String name, TypeDescriptor<T> typeDescriptor) {
-        return null;
+        return new ListStateDeclaration<>(
+                name, typeDescriptor, ListStateDeclaration.RedistributionStrategy.SPLIT);
     }
 
-    public static <T> ValueStateDeclaration<T> keyedValueState(
+    public static <T> ListStateDeclaration<T> unionRedistributionListState(
             String name, TypeDescriptor<T> typeDescriptor) {
-        return null;
+        return new ListStateDeclaration<>(
+                name, typeDescriptor, ListStateDeclaration.RedistributionStrategy.UNION);
+    }
+
+    public static <T> ValueStateDeclaration<T> valueState(
+            String name, TypeDescriptor<T> typeDescriptor) {
+        return new ValueStateDeclaration<>(name, typeDescriptor);
+    }
+
+    public static <K, V> MapStateDeclaration<K, V> broadcastMapState(
+            String name,
+            TypeDescriptor<K> keyTypeDescriptor,
+            TypeDescriptor<V> valueTypeDescriptor) {
+        return new MapStateDeclaration<>(
+                name, keyTypeDescriptor, valueTypeDescriptor, RedistributionMode.IDENTICAL);
     }
 
     // TODO: implement above, and move everything below to implementation modules
@@ -53,12 +64,19 @@ public class States {
     public abstract static class StateDeclaration implements Serializable {
         private final String name;
 
-        public StateDeclaration(String name) {
+        private final RedistributionMode redistributionMode;
+
+        public StateDeclaration(String name, RedistributionMode redistributionMode) {
             this.name = name;
+            this.redistributionMode = redistributionMode;
         }
 
         public String getName() {
             return name;
+        }
+
+        public RedistributionMode getRedistributionMode() {
+            return redistributionMode;
         }
 
         @Override
@@ -83,9 +101,19 @@ public class States {
 
         private final TypeDescriptor<T> elementTypeDescriptor;
 
-        private ListStateDeclaration(String name, TypeDescriptor<T> elementTypeDescriptor) {
-            super(name);
+        @Nullable private final RedistributionStrategy redistributionStrategy;
+
+        private ListStateDeclaration(
+                String name,
+                TypeDescriptor<T> elementTypeDescriptor,
+                @Nullable RedistributionStrategy redistributionStrategy) {
+            super(
+                    name,
+                    redistributionStrategy == null
+                            ? RedistributionMode.NONE
+                            : RedistributionMode.REDISTRIBUTABLE);
             this.elementTypeDescriptor = elementTypeDescriptor;
+            this.redistributionStrategy = redistributionStrategy;
         }
 
         public TypeDescriptor<T> getElementTypeDescriptor() {
@@ -111,6 +139,11 @@ public class States {
         public int hashCode() {
             return Objects.hash(super.hashCode(), getElementTypeDescriptor());
         }
+
+        enum RedistributionStrategy {
+            SPLIT,
+            UNION
+        }
     }
 
     public static class ValueStateDeclaration<T> extends StateDeclaration {
@@ -118,7 +151,7 @@ public class States {
         private final TypeDescriptor<T> typeDescriptor;
 
         private ValueStateDeclaration(String name, TypeDescriptor<T> typeDescriptor) {
-            super(name);
+            super(name, RedistributionMode.NONE);
             this.typeDescriptor = typeDescriptor;
         }
 
@@ -145,5 +178,26 @@ public class States {
         public int hashCode() {
             return Objects.hash(super.hashCode(), typeDescriptor);
         }
+    }
+
+    public static class MapStateDeclaration<K, V> extends StateDeclaration {
+        private final TypeDescriptor<K> keyTypeDescriptor;
+        private final TypeDescriptor<V> valueTypeDescriptor;
+
+        public MapStateDeclaration(
+                String name,
+                TypeDescriptor<K> keyTypeDescriptor,
+                TypeDescriptor<V> valueTypeDescriptor,
+                RedistributionMode redistributionMode) {
+            super(name, redistributionMode);
+            this.keyTypeDescriptor = keyTypeDescriptor;
+            this.valueTypeDescriptor = valueTypeDescriptor;
+        }
+    }
+
+    enum RedistributionMode {
+        NONE,
+        REDISTRIBUTABLE,
+        IDENTICAL
     }
 }
