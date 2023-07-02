@@ -47,11 +47,6 @@ public interface KeyedPartitionStream<K, T> {
     <OUT1, OUT2> ProcessConfigurableAndTwoNonKeyedPartitionStreams<OUT1, OUT2> process(
             TwoOutputStreamProcessFunction<T, OUT1, OUT2> processFunction);
 
-    /** Keyed connect to Non-Keyed. */
-    <T_OTHER, OUT> ProcessConfigurableAndNonKeyedPartitionStream<OUT> connectAndProcess(
-            NonKeyedPartitionStream<T_OTHER> other,
-            TwoInputStreamProcessFunction<T, T_OTHER, OUT> processFunction);
-
     /** Keyed connect to Keyed. */
     <T_OTHER, OUT> ProcessConfigurableAndNonKeyedPartitionStream<OUT> connectAndProcess(
             KeyedPartitionStream<K, T_OTHER> other,
